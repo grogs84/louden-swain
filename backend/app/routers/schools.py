@@ -1,184 +1,130 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+from sqlalchemy.orm import selectinload
+from sqlalchemy import func
 from typing import List, Optional
-from app.database.supabase_client import supabase_client
+from app.database.database import get_db
+from app.models.models import School as SchoolModel, Wrestler as WrestlerModel
 from app.models.schemas import School, SchoolCreate, SchoolUpdate, SchoolWithWrestlers
 
 router = APIRouter()
 
-@router.get("/", response_model=List[dict])
+@router.get("/", response_model=List[School])
 async def get_schools(
     skip: int = 0,
     limit: int = 100,
     state: Optional[str] = None,
     conference: Optional[str] = None,
+    db: AsyncSession = Depends(get_db)
 ):
     """Get all schools with optional filtering"""
-    try:
-        # Build filters
-        filters = {}
-        if state:
-            filters["state"] = state
-        if conference:
-            filters["conference"] = conference
-        
-        schools = await supabase_client.select(
-            table="schools",
-            filters=filters,
-            limit=limit
-        )
-        
-        # Apply skip manually for now
-        if skip > 0:
-            schools = schools[skip:]
-        
-        return schools
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching schools: {str(e)}")
+    query = select(SchoolModel)
+    
+    if state:
+        query = query.where(SchoolModel.state == state)
+    if conference:
+        query = query.where(SchoolModel.conference == conference)
+    
+    query = query.offset(skip).limit(limit)
+    result = await db.execute(query)
+    schools = result.scalars().all()
+    return schools
 
-@router.get("/{school_id}", response_model=dict)
-async def get_school(school_id: int):
+@router.get("/{school_id}", response_model=SchoolWithWrestlers)
+async def get_school(school_id: int, db: AsyncSession = Depends(get_db)):
     """Get a specific school by ID with wrestlers"""
-    try:
-        schools = await supabase_client.select(
-            table="schools",
-            filters={"id": school_id}
-        )
-        
-        if not schools:
-            raise HTTPException(status_code=404, detail="School not found")
-        
-        school = schools[0]
-        
-        # Get wrestlers for this school
-        wrestlers = await supabase_client.select(
-            table="wrestlers",
-            filters={"school_id": school_id}
-        )
-        
-        school["wrestlers"] = wrestlers
-        return school
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching school: {str(e)}")
+    query = select(SchoolModel).options(selectinload(SchoolModel.wrestlers)).where(SchoolModel.id == school_id)
+    result = await db.execute(query)
+    school = result.scalar_one_or_none()
+    
+    if not school:
+        raise HTTPException(status_code=404, detail="School not found")
+    
+    return school
 
-@router.post("/", response_model=dict, status_code=status.HTTP_201_CREATED)
-async def create_school(school: SchoolCreate):
+@router.post("/", response_model=School, status_code=status.HTTP_201_CREATED)
+async def create_school(school: SchoolCreate, db: AsyncSession = Depends(get_db)):
     """Create a new school"""
-    try:
-        result = await supabase_client.insert(
-            table="schools",
-            data=school.dict()
-        )
-        
-        if not result:
-            raise HTTPException(status_code=400, detail="Failed to create school")
-        
-        return result[0]
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error creating school: {str(e)}")
+    db_school = SchoolModel(**school.dict())
+    db.add(db_school)
+    await db.commit()
+    await db.refresh(db_school)
+    return db_school
 
-@router.put("/{school_id}", response_model=dict)
-async def update_school(school_id: int, school_update: SchoolUpdate):
+@router.put("/{school_id}", response_model=School)
+async def update_school(
+    school_id: int,
+    school_update: SchoolUpdate,
+    db: AsyncSession = Depends(get_db)
+):
     """Update a school"""
-    try:
-        # Check if school exists first
-        existing = await supabase_client.select(
-            table="schools",
-            filters={"id": school_id}
-        )
-        
-        if not existing:
-            raise HTTPException(status_code=404, detail="School not found")
-        
-        # Update with only the fields that were provided
-        update_data = school_update.dict(exclude_unset=True)
-        
-        result = await supabase_client.update(
-            table="schools",
-            filters={"id": school_id},
-            data=update_data
-        )
-        
-        if not result:
-            raise HTTPException(status_code=400, detail="Failed to update school")
-        
-        return result[0]
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error updating school: {str(e)}")
+    query = select(SchoolModel).where(SchoolModel.id == school_id)
+    result = await db.execute(query)
+    school = result.scalar_one_or_none()
+    
+    if not school:
+        raise HTTPException(status_code=404, detail="School not found")
+    
+    update_data = school_update.dict(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(school, field, value)
+    
+    await db.commit()
+    await db.refresh(school)
+    return school
 
 @router.delete("/{school_id}")
-async def delete_school(school_id: int):
+async def delete_school(school_id: int, db: AsyncSession = Depends(get_db)):
     """Delete a school"""
-    try:
-        # Check if school exists first
-        existing = await supabase_client.select(
-            table="schools",
-            filters={"id": school_id}
-        )
-        
-        if not existing:
-            raise HTTPException(status_code=404, detail="School not found")
-        
-        await supabase_client.delete(
-            table="schools",
-            filters={"id": school_id}
-        )
-        
-        return {"message": "School deleted successfully"}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error deleting school: {str(e)}")
+    query = select(SchoolModel).where(SchoolModel.id == school_id)
+    result = await db.execute(query)
+    school = result.scalar_one_or_none()
+    
+    if not school:
+        raise HTTPException(status_code=404, detail="School not found")
+    
+    await db.delete(school)
+    await db.commit()
+    return {"message": "School deleted successfully"}
 
 @router.get("/{school_id}/stats")
-async def get_school_stats(school_id: int):
+async def get_school_stats(school_id: int, db: AsyncSession = Depends(get_db)):
     """Get statistics for a school including wrestler counts and performance"""
-    try:
-        # Check if school exists
-        school = await supabase_client.select(
-            table="schools",
-            filters={"id": school_id}
-        )
-        
-        if not school:
-            raise HTTPException(status_code=404, detail="School not found")
-        
-        # Get wrestlers for this school
-        wrestlers = await supabase_client.select(
-            table="wrestlers",
-            filters={"school_id": school_id}
-        )
-        
-        # Calculate basic stats
-        total_wrestlers = len(wrestlers)
-        weight_class_counts = {}
-        year_counts = {}
-        
-        for wrestler in wrestlers:
-            # Count by weight class
-            weight = wrestler.get('weight_class')
-            if weight:
-                weight_class_counts[weight] = weight_class_counts.get(weight, 0) + 1
-            
-            # Count by year
-            year = wrestler.get('year')
-            if year:
-                year_counts[year] = year_counts.get(year, 0) + 1
-        
-        return {
-            "school_id": school_id,
-            "school_name": school[0].get('name'),
-            "total_wrestlers": total_wrestlers,
-            "weight_class_distribution": weight_class_counts,
-            "year_distribution": year_counts,
-            "conference": school[0].get('conference'),
-            "division": school[0].get('division'),
-            "state": school[0].get('state')
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching school stats: {str(e)}")
+    # First verify school exists
+    query = select(SchoolModel).where(SchoolModel.id == school_id)
+    result = await db.execute(query)
+    school = result.scalar_one_or_none()
+    
+    if not school:
+        raise HTTPException(status_code=404, detail="School not found")
+    
+    # Get wrestler statistics
+    wrestler_count_query = select(func.count(WrestlerModel.id)).where(WrestlerModel.school_id == school_id)
+    wrestler_count_result = await db.execute(wrestler_count_query)
+    total_wrestlers = wrestler_count_result.scalar()
+    
+    # Get weight class distribution
+    weight_class_query = select(WrestlerModel.weight_class, func.count(WrestlerModel.id)).where(
+        WrestlerModel.school_id == school_id
+    ).group_by(WrestlerModel.weight_class)
+    weight_class_result = await db.execute(weight_class_query)
+    weight_class_distribution = {str(weight): count for weight, count in weight_class_result.all()}
+    
+    # Get year distribution
+    year_query = select(WrestlerModel.year, func.count(WrestlerModel.id)).where(
+        WrestlerModel.school_id == school_id
+    ).group_by(WrestlerModel.year)
+    year_result = await db.execute(year_query)
+    year_distribution = {year: count for year, count in year_result.all() if year}
+    
+    return {
+        "school_id": school_id,
+        "school_name": school.name,
+        "total_wrestlers": total_wrestlers,
+        "weight_class_distribution": weight_class_distribution,
+        "year_distribution": year_distribution,
+        "conference": school.conference,
+        "state": school.state,
+        "city": school.city
+    }

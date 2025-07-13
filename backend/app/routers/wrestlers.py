@@ -1,165 +1,116 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+from sqlalchemy.orm import selectinload
 from typing import List, Optional
-from app.database.supabase_client import supabase_client
+from app.database.database import get_db
+from app.models.models import Wrestler as WrestlerModel
 from app.models.schemas import Wrestler, WrestlerCreate, WrestlerUpdate, WrestlerWithSchool
 
 router = APIRouter()
 
-@router.get("/", response_model=List[dict])
+@router.get("/", response_model=List[WrestlerWithSchool])
 async def get_wrestlers(
     skip: int = 0,
     limit: int = 100,
     weight_class: Optional[int] = None,
     school_id: Optional[int] = None,
+    db: AsyncSession = Depends(get_db)
 ):
     """Get all wrestlers with optional filtering"""
-    try:
-        # Build filters
-        filters = {}
-        if weight_class:
-            filters["weight_class"] = weight_class
-        if school_id:
-            filters["school_id"] = school_id
-        
-        # Select wrestlers with school information (using join)
-        columns = "*, schools(name, conference, division)"
-        
-        wrestlers = await supabase_client.select(
-            table="wrestlers",
-            columns=columns,
-            filters=filters,
-            limit=limit
-        )
-        
-        # Apply skip manually for now (could be improved with range headers)
-        if skip > 0:
-            wrestlers = wrestlers[skip:]
-        
-        return wrestlers
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching wrestlers: {str(e)}")
+    query = select(WrestlerModel).options(selectinload(WrestlerModel.school))
+    
+    if weight_class:
+        query = query.where(WrestlerModel.weight_class == weight_class)
+    if school_id:
+        query = query.where(WrestlerModel.school_id == school_id)
+    
+    query = query.offset(skip).limit(limit)
+    result = await db.execute(query)
+    wrestlers = result.scalars().all()
+    return wrestlers
 
-@router.get("/{wrestler_id}", response_model=dict)
-async def get_wrestler(wrestler_id: int):
+@router.get("/{wrestler_id}", response_model=WrestlerWithSchool)
+async def get_wrestler(wrestler_id: int, db: AsyncSession = Depends(get_db)):
     """Get a specific wrestler by ID"""
-    try:
-        wrestlers = await supabase_client.select(
-            table="wrestlers",
-            columns="*, schools(name, conference, division)",
-            filters={"id": wrestler_id}
-        )
-        
-        if not wrestlers:
-            raise HTTPException(status_code=404, detail="Wrestler not found")
-        
-        return wrestlers[0]
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching wrestler: {str(e)}")
+    query = select(WrestlerModel).options(selectinload(WrestlerModel.school)).where(WrestlerModel.id == wrestler_id)
+    result = await db.execute(query)
+    wrestler = result.scalar_one_or_none()
+    
+    if not wrestler:
+        raise HTTPException(status_code=404, detail="Wrestler not found")
+    
+    return wrestler
 
-@router.post("/", response_model=dict, status_code=status.HTTP_201_CREATED)
-async def create_wrestler(wrestler: WrestlerCreate):
+@router.post("/", response_model=Wrestler, status_code=status.HTTP_201_CREATED)
+async def create_wrestler(wrestler: WrestlerCreate, db: AsyncSession = Depends(get_db)):
     """Create a new wrestler"""
-    try:
-        result = await supabase_client.insert(
-            table="wrestlers",
-            data=wrestler.dict()
-        )
-        
-        if not result:
-            raise HTTPException(status_code=400, detail="Failed to create wrestler")
-        
-        return result[0]
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error creating wrestler: {str(e)}")
+    db_wrestler = WrestlerModel(**wrestler.dict())
+    db.add(db_wrestler)
+    await db.commit()
+    await db.refresh(db_wrestler)
+    return db_wrestler
 
-@router.put("/{wrestler_id}", response_model=dict)
-async def update_wrestler(wrestler_id: int, wrestler_update: WrestlerUpdate):
+@router.put("/{wrestler_id}", response_model=Wrestler)
+async def update_wrestler(
+    wrestler_id: int,
+    wrestler_update: WrestlerUpdate,
+    db: AsyncSession = Depends(get_db)
+):
     """Update a wrestler"""
-    try:
-        # Check if wrestler exists first
-        existing = await supabase_client.select(
-            table="wrestlers",
-            filters={"id": wrestler_id}
-        )
-        
-        if not existing:
-            raise HTTPException(status_code=404, detail="Wrestler not found")
-        
-        # Update with only the fields that were provided
-        update_data = wrestler_update.dict(exclude_unset=True)
-        
-        result = await supabase_client.update(
-            table="wrestlers",
-            filters={"id": wrestler_id},
-            data=update_data
-        )
-        
-        if not result:
-            raise HTTPException(status_code=400, detail="Failed to update wrestler")
-        
-        return result[0]
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error updating wrestler: {str(e)}")
+    query = select(WrestlerModel).where(WrestlerModel.id == wrestler_id)
+    result = await db.execute(query)
+    wrestler = result.scalar_one_or_none()
+    
+    if not wrestler:
+        raise HTTPException(status_code=404, detail="Wrestler not found")
+    
+    update_data = wrestler_update.dict(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(wrestler, field, value)
+    
+    await db.commit()
+    await db.refresh(wrestler)
+    return wrestler
 
 @router.delete("/{wrestler_id}")
-async def delete_wrestler(wrestler_id: int):
+async def delete_wrestler(wrestler_id: int, db: AsyncSession = Depends(get_db)):
     """Delete a wrestler"""
-    try:
-        # Check if wrestler exists first
-        existing = await supabase_client.select(
-            table="wrestlers",
-            filters={"id": wrestler_id}
-        )
-        
-        if not existing:
-            raise HTTPException(status_code=404, detail="Wrestler not found")
-        
-        await supabase_client.delete(
-            table="wrestlers",
-            filters={"id": wrestler_id}
-        )
-        
-        return {"message": "Wrestler deleted successfully"}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error deleting wrestler: {str(e)}")
+    query = select(WrestlerModel).where(WrestlerModel.id == wrestler_id)
+    result = await db.execute(query)
+    wrestler = result.scalar_one_or_none()
+    
+    if not wrestler:
+        raise HTTPException(status_code=404, detail="Wrestler not found")
+    
+    await db.delete(wrestler)
+    await db.commit()
+    return {"message": "Wrestler deleted successfully"}
 
 @router.get("/{wrestler_id}/stats")
-async def get_wrestler_stats(wrestler_id: int):
+async def get_wrestler_stats(wrestler_id: int, db: AsyncSession = Depends(get_db)):
     """Get detailed statistics for a wrestler including match history"""
-    try:
-        # Check if wrestler exists
-        wrestler = await supabase_client.select(
-            table="wrestlers",
-            filters={"id": wrestler_id}
-        )
-        
-        if not wrestler:
-            raise HTTPException(status_code=404, detail="Wrestler not found")
-        
-        # Get match history for this wrestler
-        # This would involve querying matches table and calculating stats
-        # For now, returning a placeholder structure with the actual wrestler data
-        return {
-            "wrestler_id": wrestler_id,
-            "wrestler_name": f"{wrestler[0].get('first_name', '')} {wrestler[0].get('last_name', '')}",
-            "total_matches": 0,
-            "wins": 0,
-            "losses": 0,
-            "win_percentage": 0.0,
-            "pins": 0,
-            "tech_falls": 0,
-            "major_decisions": 0,
-            "decisions": 0,
-            "weight_class": wrestler[0].get('weight_class'),
-            "year": wrestler[0].get('year')
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching wrestler stats: {str(e)}")
+    # First verify wrestler exists
+    query = select(WrestlerModel).where(WrestlerModel.id == wrestler_id)
+    result = await db.execute(query)
+    wrestler = result.scalar_one_or_none()
+    
+    if not wrestler:
+        raise HTTPException(status_code=404, detail="Wrestler not found")
+    
+    # This would typically involve complex queries to calculate wins, losses, etc.
+    # For now, returning a placeholder structure with wrestler info
+    return {
+        "wrestler_id": wrestler_id,
+        "wrestler_name": f"{wrestler.first_name} {wrestler.last_name}",
+        "weight_class": wrestler.weight_class,
+        "year": wrestler.year,
+        "total_matches": 0,
+        "wins": 0,
+        "losses": 0,
+        "win_percentage": 0.0,
+        "pins": 0,
+        "tech_falls": 0,
+        "major_decisions": 0,
+        "decisions": 0
+    }

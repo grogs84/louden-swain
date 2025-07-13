@@ -16,7 +16,6 @@ import {
   CircularProgress,
   Alert,
 } from '@mui/material';
-import { Bracket } from 'react-brackets';
 import { tournamentsAPI, bracketsAPI } from '../services/api';
 
 const BracketsPage = () => {
@@ -203,34 +202,32 @@ const BracketsPage = () => {
                 <CircularProgress />
               </Box>
             ) : (
-              <Box sx={{ overflow: 'auto', minHeight: '600px' }}>
-                <Bracket
-                  rounds={bracketData?.rounds || mockBracketData.rounds}
-                  roundTitleComponent={(title, roundIndex) => (
-                    <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
-                      <Typography variant="h6">{title}</Typography>
-                    </div>
+              <Box sx={{ overflow: 'auto', minHeight: '600px', p: 3 }}>
+                <Paper sx={{ p: 3, textAlign: 'center' }}>
+                  <Typography variant="h5" gutterBottom>
+                    Tournament Bracket Visualization
+                  </Typography>
+                  <Typography variant="body1" color="text.secondary" paragraph>
+                    Bracket visualization component will be implemented here.
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Selected Weight Class: {selectedWeightClass} lbs
+                  </Typography>
+                  {bracketData && (
+                    <Box sx={{ mt: 2 }}>
+                      <Typography variant="body2">
+                        Bracket data loaded successfully
+                      </Typography>
+                    </Box>
                   )}
-                  seedComponent={({ seed, breakpoint }) => (
-                    <div
-                      style={{
-                        fontSize: breakpoint === 'xs' ? '12px' : '14px',
-                        padding: '8px',
-                        backgroundColor: '#f5f5f5',
-                        border: '1px solid #ddd',
-                        borderRadius: '4px',
-                        margin: '2px 0',
-                      }}
-                    >
-                      <div><strong>{seed.date}</strong></div>
-                      {seed.teams.map((team, index) => (
-                        <div key={index} style={{ margin: '4px 0' }}>
-                          {team.name}
-                        </div>
-                      ))}
-                    </div>
+                  {brackets && (
+                    <Box sx={{ mt: 1 }}>
+                      <Typography variant="body2" color="text.secondary">
+                        Available brackets: {brackets.length}
+                      </Typography>
+                    </Box>
                   )}
-                />
+                </Paper>
               </Box>
             )}
           </CardContent>

@@ -1,130 +1,88 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+from sqlalchemy.orm import selectinload
 from typing import List, Optional
-from app.database.supabase_client import supabase_client
+from app.database.database import get_db
+from app.models.models import Coach as CoachModel
 from app.models.schemas import Coach, CoachCreate, CoachUpdate, CoachWithSchool
 
 router = APIRouter()
 
-@router.get("/", response_model=List[dict])
+@router.get("/", response_model=List[CoachWithSchool])
 async def get_coaches(
     skip: int = 0,
     limit: int = 100,
     school_id: Optional[int] = None,
-    title: Optional[str] = None,
+    position: Optional[str] = None,
+    db: AsyncSession = Depends(get_db)
 ):
     """Get all coaches with optional filtering"""
-    try:
-        # Build filters
-        filters = {}
-        if school_id:
-            filters["school_id"] = school_id
-        if title:
-            filters["title"] = title
-        
-        # Select coaches with school information
-        columns = "*, schools(name, conference, division)"
-        
-        coaches = await supabase_client.select(
-            table="coaches",
-            columns=columns,
-            filters=filters,
-            limit=limit
-        )
-        
-        # Apply skip manually for now
-        if skip > 0:
-            coaches = coaches[skip:]
-        
-        return coaches
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching coaches: {str(e)}")
+    query = select(CoachModel).options(selectinload(CoachModel.school))
+    
+    if school_id:
+        query = query.where(CoachModel.school_id == school_id)
+    if position:
+        query = query.where(CoachModel.position == position)
+    
+    query = query.offset(skip).limit(limit)
+    result = await db.execute(query)
+    coaches = result.scalars().all()
+    return coaches
 
-@router.get("/{coach_id}", response_model=dict)
-async def get_coach(coach_id: int):
+@router.get("/{coach_id}", response_model=CoachWithSchool)
+async def get_coach(coach_id: int, db: AsyncSession = Depends(get_db)):
     """Get a specific coach by ID"""
-    try:
-        coaches = await supabase_client.select(
-            table="coaches",
-            columns="*, schools(name, conference, division)",
-            filters={"id": coach_id}
-        )
-        
-        if not coaches:
-            raise HTTPException(status_code=404, detail="Coach not found")
-        
-        return coaches[0]
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching coach: {str(e)}")
+    query = select(CoachModel).options(selectinload(CoachModel.school)).where(CoachModel.id == coach_id)
+    result = await db.execute(query)
+    coach = result.scalar_one_or_none()
+    
+    if not coach:
+        raise HTTPException(status_code=404, detail="Coach not found")
+    
+    return coach
 
-@router.post("/", response_model=dict, status_code=status.HTTP_201_CREATED)
-async def create_coach(coach: CoachCreate):
+@router.post("/", response_model=Coach, status_code=status.HTTP_201_CREATED)
+async def create_coach(coach: CoachCreate, db: AsyncSession = Depends(get_db)):
     """Create a new coach"""
-    try:
-        result = await supabase_client.insert(
-            table="coaches",
-            data=coach.dict()
-        )
-        
-        if not result:
-            raise HTTPException(status_code=400, detail="Failed to create coach")
-        
-        return result[0]
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error creating coach: {str(e)}")
+    db_coach = CoachModel(**coach.dict())
+    db.add(db_coach)
+    await db.commit()
+    await db.refresh(db_coach)
+    return db_coach
 
-@router.put("/{coach_id}", response_model=dict)
-async def update_coach(coach_id: int, coach_update: CoachUpdate):
+@router.put("/{coach_id}", response_model=Coach)
+async def update_coach(
+    coach_id: int,
+    coach_update: CoachUpdate,
+    db: AsyncSession = Depends(get_db)
+):
     """Update a coach"""
-    try:
-        # Check if coach exists first
-        existing = await supabase_client.select(
-            table="coaches",
-            filters={"id": coach_id}
-        )
-        
-        if not existing:
-            raise HTTPException(status_code=404, detail="Coach not found")
-        
-        # Update with only the fields that were provided
-        update_data = coach_update.dict(exclude_unset=True)
-        
-        result = await supabase_client.update(
-            table="coaches",
-            filters={"id": coach_id},
-            data=update_data
-        )
-        
-        if not result:
-            raise HTTPException(status_code=400, detail="Failed to update coach")
-        
-        return result[0]
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error updating coach: {str(e)}")
+    query = select(CoachModel).where(CoachModel.id == coach_id)
+    result = await db.execute(query)
+    coach = result.scalar_one_or_none()
+    
+    if not coach:
+        raise HTTPException(status_code=404, detail="Coach not found")
+    
+    update_data = coach_update.dict(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(coach, field, value)
+    
+    await db.commit()
+    await db.refresh(coach)
+    return coach
 
 @router.delete("/{coach_id}")
-async def delete_coach(coach_id: int):
+async def delete_coach(coach_id: int, db: AsyncSession = Depends(get_db)):
     """Delete a coach"""
-    try:
-        # Check if coach exists first
-        existing = await supabase_client.select(
-            table="coaches",
-            filters={"id": coach_id}
-        )
-        
-        if not existing:
-            raise HTTPException(status_code=404, detail="Coach not found")
-        
-        await supabase_client.delete(
-            table="coaches",
-            filters={"id": coach_id}
-        )
-        
-        return {"message": "Coach deleted successfully"}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error deleting coach: {str(e)}")
+    query = select(CoachModel).where(CoachModel.id == coach_id)
+    result = await db.execute(query)
+    coach = result.scalar_one_or_none()
+    
+    if not coach:
+        raise HTTPException(status_code=404, detail="Coach not found")
+    
+    await db.delete(coach)
+    await db.commit()
+    return {"message": "Coach deleted successfully"}

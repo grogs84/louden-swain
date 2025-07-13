@@ -1,125 +1,143 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+from sqlalchemy.orm import selectinload
 from typing import List, Optional
-from app.database.supabase_client import supabase_client
-from app.models.schemas import Tournament, TournamentCreate
+from app.database.database import get_db
+from app.models.models import Tournament as TournamentModel
+from app.models.schemas import Tournament, TournamentCreate, TournamentUpdate
 
 router = APIRouter()
 
-@router.get("/", response_model=List[dict])
+@router.get("/", response_model=List[Tournament])
 async def get_tournaments(
     skip: int = 0,
     limit: int = 100,
     year: Optional[int] = None,
     division: Optional[str] = None,
+    db: AsyncSession = Depends(get_db)
 ):
     """Get all tournaments with optional filtering"""
-    try:
-        # Build filters
-        filters = {}
-        if year:
-            filters["year"] = year
-        if division:
-            filters["division"] = division
-        
-        tournaments = await supabase_client.select(
-            table="tournaments",
-            filters=filters,
-            limit=limit
-        )
-        
-        # Apply skip manually for now
-        if skip > 0:
-            tournaments = tournaments[skip:]
-        
-        return tournaments
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching tournaments: {str(e)}")
+    query = select(TournamentModel)
+    
+    if year:
+        query = query.where(TournamentModel.year == year)
+    if division:
+        query = query.where(TournamentModel.division == division)
+    
+    query = query.offset(skip).limit(limit)
+    result = await db.execute(query)
+    tournaments = result.scalars().all()
+    return tournaments
 
-@router.get("/{tournament_id}", response_model=dict)
-async def get_tournament(tournament_id: int):
+@router.get("/{tournament_id}", response_model=Tournament)
+async def get_tournament(tournament_id: int, db: AsyncSession = Depends(get_db)):
     """Get a specific tournament by ID"""
-    try:
-        tournaments = await supabase_client.select(
-            table="tournaments",
-            filters={"id": tournament_id}
-        )
-        
-        if not tournaments:
-            raise HTTPException(status_code=404, detail="Tournament not found")
-        
-        return tournaments[0]
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching tournament: {str(e)}")
+    query = select(TournamentModel).where(TournamentModel.id == tournament_id)
+    result = await db.execute(query)
+    tournament = result.scalar_one_or_none()
+    
+    if not tournament:
+        raise HTTPException(status_code=404, detail="Tournament not found")
+    
+    return tournament
 
-@router.post("/", response_model=dict, status_code=status.HTTP_201_CREATED)
-async def create_tournament(tournament: TournamentCreate):
+@router.post("/", response_model=Tournament, status_code=status.HTTP_201_CREATED)
+async def create_tournament(tournament: TournamentCreate, db: AsyncSession = Depends(get_db)):
     """Create a new tournament"""
-    try:
-        result = await supabase_client.insert(
-            table="tournaments",
-            data=tournament.dict()
-        )
-        
-        if not result:
-            raise HTTPException(status_code=400, detail="Failed to create tournament")
-        
-        return result[0]
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error creating tournament: {str(e)}")
+    db_tournament = TournamentModel(**tournament.dict())
+    db.add(db_tournament)
+    await db.commit()
+    await db.refresh(db_tournament)
+    return db_tournament
+
+@router.put("/{tournament_id}", response_model=Tournament)
+async def update_tournament(
+    tournament_id: int,
+    tournament_update: TournamentUpdate,
+    db: AsyncSession = Depends(get_db)
+):
+    """Update a tournament"""
+    query = select(TournamentModel).where(TournamentModel.id == tournament_id)
+    result = await db.execute(query)
+    tournament = result.scalar_one_or_none()
+    
+    if not tournament:
+        raise HTTPException(status_code=404, detail="Tournament not found")
+    
+    update_data = tournament_update.dict(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(tournament, field, value)
+    
+    await db.commit()
+    await db.refresh(tournament)
+    return tournament
+
+@router.delete("/{tournament_id}")
+async def delete_tournament(tournament_id: int, db: AsyncSession = Depends(get_db)):
+    """Delete a tournament"""
+    query = select(TournamentModel).where(TournamentModel.id == tournament_id)
+    result = await db.execute(query)
+    tournament = result.scalar_one_or_none()
+    
+    if not tournament:
+        raise HTTPException(status_code=404, detail="Tournament not found")
+    
+    await db.delete(tournament)
+    await db.commit()
+    return {"message": "Tournament deleted successfully"}
 
 @router.get("/{tournament_id}/brackets")
-async def get_tournament_brackets(tournament_id: int):
+async def get_tournament_brackets(tournament_id: int, db: AsyncSession = Depends(get_db)):
     """Get bracket data for a tournament"""
-    try:
-        # Check if tournament exists
-        tournaments = await supabase_client.select(
-            table="tournaments",
-            filters={"id": tournament_id}
-        )
+    from app.models.models import Bracket as BracketModel, Match as MatchModel
+    
+    # First verify tournament exists
+    tournament_query = select(TournamentModel).where(TournamentModel.id == tournament_id)
+    tournament_result = await db.execute(tournament_query)
+    tournament = tournament_result.scalar_one_or_none()
+    
+    if not tournament:
+        raise HTTPException(status_code=404, detail="Tournament not found")
+    
+    # Get brackets for this tournament
+    brackets_query = select(BracketModel).where(BracketModel.tournament_id == tournament_id)
+    brackets_result = await db.execute(brackets_query)
+    brackets = brackets_result.scalars().all()
+    
+    # Get matches for this tournament  
+    matches_query = select(MatchModel).where(MatchModel.bracket_id.in_([b.id for b in brackets]))
+    matches_result = await db.execute(matches_query)
+    matches = matches_result.scalars().all()
+    
+    # Organize data by weight class
+    bracket_data = {}
+    for bracket in brackets:
+        weight_class = bracket.weight_class
+        if weight_class not in bracket_data:
+            bracket_data[weight_class] = {
+                "weight_class": weight_class,
+                "bracket_id": bracket.id,
+                "matches": []
+            }
         
-        if not tournaments:
-            raise HTTPException(status_code=404, detail="Tournament not found")
-        
-        # Get matches for this tournament organized by weight class
-        matches = await supabase_client.select(
-            table="matches",
-            filters={"tournament_id": tournament_id}
-        )
-        
-        # Organize matches into bracket structure
-        brackets = {}
-        for match in matches:
-            weight_class = match.get('weight_class', 'Unknown')
-            if weight_class not in brackets:
-                brackets[weight_class] = {
-                    "weight_class": weight_class,
-                    "rounds": {}
-                }
-            
-            round_num = match.get('round', 1)
-            if round_num not in brackets[weight_class]["rounds"]:
-                brackets[weight_class]["rounds"][round_num] = []
-            
-            brackets[weight_class]["rounds"][round_num].append({
-                "id": match.get("id"),
-                "wrestler1_id": match.get("wrestler1_id"),
-                "wrestler2_id": match.get("wrestler2_id"),
-                "winner_id": match.get("winner_id"),
-                "match_type": match.get("match_type"),
-                "score": match.get("score"),
-                "bout_number": match.get("bout_number")
-            })
-        
-        return {
-            "tournament_id": tournament_id,
-            "tournament_name": tournaments[0].get('name'),
-            "year": tournaments[0].get('year'),
-            "brackets": list(brackets.values())
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching tournament brackets: {str(e)}")
+        # Add matches for this bracket
+        bracket_matches = [m for m in matches if m.bracket_id == bracket.id]
+        bracket_data[weight_class]["matches"] = [
+            {
+                "id": match.id,
+                "wrestler1_id": match.wrestler1_id,
+                "wrestler2_id": match.wrestler2_id,
+                "winner_id": match.winner_id,
+                "round_name": match.round_name,
+                "match_number": match.match_number,
+                "score": match.score
+            } for match in bracket_matches
+        ]
+    
+    return {
+        "tournament_id": tournament_id,
+        "tournament_name": tournament.name,
+        "year": tournament.year,
+        "brackets": list(bracket_data.values())
+    }

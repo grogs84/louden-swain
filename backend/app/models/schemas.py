@@ -30,7 +30,7 @@ class WrestlerUpdate(BaseModel):
 
 class Wrestler(WrestlerBase):
     id: int
-    created_at: datetime
+    created_at: Optional[datetime] = None
     
     class Config:
         from_attributes = True
@@ -57,7 +57,7 @@ class SchoolUpdate(BaseModel):
 
 class School(SchoolBase):
     id: int
-    created_at: datetime
+    created_at: Optional[datetime] = None
     
     class Config:
         from_attributes = True
@@ -91,7 +91,7 @@ class CoachUpdate(BaseModel):
 
 class Coach(CoachBase):
     id: int
-    created_at: datetime
+    created_at: Optional[datetime] = None
     
     class Config:
         from_attributes = True
@@ -111,9 +111,17 @@ class TournamentBase(BaseModel):
 class TournamentCreate(TournamentBase):
     pass
 
+class TournamentUpdate(BaseModel):
+    name: Optional[str] = None
+    year: Optional[int] = None
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+    location: Optional[str] = None
+    division: Optional[str] = None
+
 class Tournament(TournamentBase):
     id: int
-    created_at: datetime
+    created_at: Optional[datetime] = None
     
     class Config:
         from_attributes = True
@@ -127,9 +135,14 @@ class BracketBase(BaseModel):
 class BracketCreate(BracketBase):
     pass
 
+class BracketUpdate(BaseModel):
+    tournament_id: Optional[int] = None
+    weight_class: Optional[int] = None
+    bracket_data: Optional[str] = None
+
 class Bracket(BracketBase):
     id: int
-    created_at: datetime
+    created_at: Optional[datetime] = None
     
     class Config:
         from_attributes = True
@@ -155,7 +168,7 @@ class MatchCreate(MatchBase):
 
 class Match(MatchBase):
     id: int
-    created_at: datetime
+    created_at: Optional[datetime] = None
     
     class Config:
         from_attributes = True

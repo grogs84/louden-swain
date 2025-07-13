@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routers import wrestlers, schools, coaches, tournaments, brackets, search
+from app.models.models import Base
+from app.database.database import engine
 
 app = FastAPI(
     title="NCAA Wrestling Championship API",
@@ -16,6 +18,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Create tables on startup
+@app.on_event("startup")
+async def startup_event():
+    async with engine.begin() as conn:
+        # Create all tables
+        await conn.run_sync(Base.metadata.create_all)
 
 # Include routers
 app.include_router(wrestlers.router, prefix="/api/wrestlers", tags=["wrestlers"])

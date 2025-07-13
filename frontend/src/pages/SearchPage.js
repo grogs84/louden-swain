@@ -108,13 +108,18 @@ const SearchPage = () => {
         );
       }
 
+      // Convert type to singular form for routing
+      const singularType = type === 'wrestlers' ? 'wrestler' : 
+                          type === 'schools' ? 'school' : 
+                          type === 'coaches' ? 'coach' : type;
+
       return (
         <List>
           {results.map((result) => (
             <ListItem
-              key={`${result.type}-${result.id}`}
+              key={`${singularType}-${result.id}`}
               component={Link}
-              to={`/${result.type}/${result.id}`}
+              to={`/${singularType}/${result.id}`}
               sx={{
                 textDecoration: 'none',
                 color: 'inherit',
@@ -127,20 +132,20 @@ const SearchPage = () => {
               <ListItemText
                 primary={
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    {result.type === 'wrestler' && <Person fontSize="small" />}
-                    {result.type === 'school' && <School fontSize="small" />}
-                    {result.type === 'coach' && <EmojiEvents fontSize="small" />}
-                    {result.name}
+                    {singularType === 'wrestler' && <Person fontSize="small" />}
+                    {singularType === 'school' && <School fontSize="small" />}
+                    {singularType === 'coach' && <EmojiEvents fontSize="small" />}
+                    {result.name || `${result.first_name} ${result.last_name}`}
                   </Box>
                 }
-                secondary={result.additional_info}
+                secondary={result.additional_info || result.school || result.conference}
               />
               <Chip
-                label={result.type}
+                label={singularType}
                 size="small"
                 color={
-                  result.type === 'wrestler' ? 'primary' :
-                  result.type === 'school' ? 'secondary' :
+                  singularType === 'wrestler' ? 'primary' :
+                  singularType === 'school' ? 'secondary' :
                   'default'
                 }
               />
