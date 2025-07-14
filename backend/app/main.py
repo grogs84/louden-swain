@@ -15,11 +15,13 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",  # React dev server
+        "http://localhost:3001",  # Alternative dev port
         "https://louden-swain.vercel.app",  # Vercel production
-        "https://*.vercel.app",  # Any Vercel preview deployments
+        "https://louden-swain-*.vercel.app",  # Vercel preview deployments
+        "*"  # Allow all origins for testing
     ],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
