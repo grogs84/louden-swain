@@ -47,6 +47,7 @@ const BracketsPage = () => {
   ];
 
   // Mock bracket data for demonstration
+  // eslint-disable-next-line no-unused-vars
   const mockBracketData = {
     rounds: [
       {
