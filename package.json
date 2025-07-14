@@ -1,0 +1,14 @@
+{
+  "name": "ncaa-wrestling-data-hub",
+  "version": "1.0.0",
+  "description": "NCAA D1 Wrestling Championship Data Application",
+  "scripts": {
+    "build": "cd frontend && npm install && npm run build",
+    "start": "cd frontend && npm start",
+    "install-frontend": "cd frontend && npm install",
+    "install-backend": "cd backend && pip install -r requirements.txt"
+  },
+  "keywords": ["wrestling", "ncaa", "react", "fastapi"],
+  "author": "Wrestling Data Team",
+  "license": "MIT"
+}
