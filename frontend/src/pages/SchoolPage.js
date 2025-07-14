@@ -141,42 +141,34 @@ const SchoolPage = () => {
                   </Grid>
                   <Grid item xs={6}>
                     <Typography variant="h6">
-                      {stats.active_weight_classes.length}
+                      {stats.weight_class_distribution ? Object.keys(stats.weight_class_distribution).length : 0}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
                       Weight Classes
                     </Typography>
                   </Grid>
                   <Grid item xs={6}>
-                    <Typography variant="h6" color="success.main">
-                      {stats.total_wins}
+                    <Typography variant="h6">
+                      {stats.conference || 'N/A'}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      Team Wins
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={6}>
-                    <Typography variant="h6" color="error.main">
-                      {stats.total_losses}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Team Losses
+                      Conference
                     </Typography>
                   </Grid>
                   <Grid item xs={6}>
                     <Typography variant="h6">
-                      {stats.conference_championships}
+                      {stats.state || 'N/A'}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      Conference Titles
+                      State
                     </Typography>
                   </Grid>
                   <Grid item xs={6}>
                     <Typography variant="h6">
-                      {stats.national_championships}
+                      {stats.city || 'N/A'}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      National Titles
+                      City
                     </Typography>
                   </Grid>
                 </Grid>
@@ -220,6 +212,72 @@ const SchoolPage = () => {
             </CardContent>
           </Card>
         </Grid>
+
+        {/* Weight Class Distribution */}
+        {stats && stats.weight_class_distribution && Object.keys(stats.weight_class_distribution).length > 0 && (
+          <Grid item xs={12} md={6}>
+            <Card>
+              <CardContent>
+                <Typography variant="h5" gutterBottom>
+                  Weight Class Distribution
+                </Typography>
+                <TableContainer>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Weight Class</TableCell>
+                        <TableCell align="right">Wrestlers</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {Object.entries(stats.weight_class_distribution)
+                        .sort((a, b) => parseInt(a[0]) - parseInt(b[0]))
+                        .map(([weight, count]) => (
+                          <TableRow key={weight}>
+                            <TableCell>{weight} lbs</TableCell>
+                            <TableCell align="right">{count}</TableCell>
+                          </TableRow>
+                        ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </CardContent>
+            </Card>
+          </Grid>
+        )}
+
+        {/* Year Distribution */}
+        {stats && stats.year_distribution && Object.keys(stats.year_distribution).length > 0 && (
+          <Grid item xs={12} md={6}>
+            <Card>
+              <CardContent>
+                <Typography variant="h5" gutterBottom>
+                  Class Year Distribution
+                </Typography>
+                <TableContainer>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Year</TableCell>
+                        <TableCell align="right">Wrestlers</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {Object.entries(stats.year_distribution)
+                        .sort((a, b) => a[0].localeCompare(b[0]))
+                        .map(([year, count]) => (
+                          <TableRow key={year}>
+                            <TableCell>{year}</TableCell>
+                            <TableCell align="right">{count}</TableCell>
+                          </TableRow>
+                        ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </CardContent>
+            </Card>
+          </Grid>
+        )}
 
         {/* Coaching Staff */}
         <Grid item xs={12} md={6}>
