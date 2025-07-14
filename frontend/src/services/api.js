@@ -56,9 +56,9 @@ export const bracketsAPI = {
 
 // Search API
 export const searchAPI = {
-  searchAll: (query, limit = 10) => apiClient.get('/search', { params: { q: query, limit } }),
-  searchWrestlers: (query, params = {}) => apiClient.get('/search/wrestlers', { params: { q: query, ...params } }),
-  searchSchools: (query, params = {}) => apiClient.get('/search/schools', { params: { q: query, ...params } }),
+  searchAll: (query, limit = 10) => apiClient.get('/search/', { params: { q: query, limit } }),
+  searchWrestlers: (query, params = {}) => apiClient.get('/search/wrestlers/', { params: { q: query, ...params } }),
+  searchSchools: (query, params = {}) => apiClient.get('/search/schools/', { params: { q: query, ...params } }),
 };
 
 export default apiClient;

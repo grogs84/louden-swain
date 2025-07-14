@@ -1,8 +1,9 @@
 {
   "version": 2,
+  "name": "wrestling-data-hub",
   "builds": [
     {
-      "src": "frontend/package.json",
+      "src": "package.json",
       "use": "@vercel/static-build",
       "config": {
         "distDir": "build"
@@ -16,6 +17,6 @@
     }
   ],
   "env": {
-    "REACT_APP_API_URL": "https://wrestling-data-hub-production.up.railway.app/api"
+    "REACT_APP_API_URL": "https://your-backend-url.com/api"
   }
 }
