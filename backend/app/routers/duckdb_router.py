@@ -109,14 +109,12 @@ async def get_wrestler(
             if not wrestler_stats:
                 raise HTTPException(status_code=404, detail="Wrestler not found")
             
-            # Convert to API format
+            # Convert to API format (removed weight_class, year, and school classification marks)
             api_wrestler = {
                 "id": 1,  # Simplified
                 "person_id": wrestler_stats.get('person_id'),
                 "first_name": (wrestler_stats.get('first_name') or '').title(),
                 "last_name": (wrestler_stats.get('last_name') or '').title(),
-                "weight_class": int(wrestler_stats.get('weight_class', 125)) if wrestler_stats.get('weight_class') and wrestler_stats.get('weight_class').isdigit() else 125,
-                "year": "Senior",
                 "school_name": (wrestler_stats.get('school_name') or '').title(),
                 "school_location": wrestler_stats.get('school_location'),
                 "wins": wrestler_stats.get('wins', 0),
@@ -395,13 +393,12 @@ async def get_wrestler_stats(wrestler_id: str, db = Depends(get_duckdb)):
             if not wrestler:
                 raise HTTPException(status_code=404, detail="Wrestler not found")
             
-            # Calculate basic stats from available data
+            # Calculate basic stats from available data (removed weight_class)
             stats = {
                 "total_matches": wrestler.get("total_matches", 0),
                 "wins": wrestler.get("wins", 0), 
                 "losses": wrestler.get("losses", 0),
                 "win_percentage": wrestler.get("win_percentage", 0.0),
-                "weight_class": wrestler.get("weight_class"),
                 "years_active": 1,  # Placeholder
                 "tournaments": 1,   # Placeholder
             }
@@ -462,7 +459,7 @@ async def get_wrestlers_frontend_compatible(
     try:
         with db:
             wrestlers = db.get_wrestlers(limit=limit, name_filter=name)
-            return [format_wrestler_for_api(w) for w in wrestlers]
+            return wrestlers
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
@@ -477,7 +474,7 @@ async def get_wrestler_by_id_frontend_compatible(
             wrestler = db.get_wrestler_by_id(wrestler_id)
             if not wrestler:
                 raise HTTPException(status_code=404, detail="Wrestler not found")
-            return format_wrestler_for_api(wrestler)
+            return wrestler
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
@@ -533,7 +530,7 @@ async def get_schools_frontend_compatible(
     try:
         with db:
             schools = db.get_schools(limit=limit, name_filter=name)
-            return [format_school_for_api(school) for school in schools]
+            return schools
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
@@ -548,7 +545,7 @@ async def get_school_by_id_frontend_compatible(
             school = db.get_school_by_id(school_id)
             if not school:
                 raise HTTPException(status_code=404, detail="School not found")
-            return format_school_for_api(school)
+            return school
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
@@ -607,7 +604,7 @@ async def get_tournaments_frontend_compatible(
     try:
         with db:
             tournaments = db.get_tournaments(limit=limit, year_filter=year)
-            return [format_tournament_for_api(tournament) for tournament in tournaments]
+            return tournaments
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
@@ -622,7 +619,7 @@ async def get_tournament_by_id_frontend_compatible(
             tournament = db.get_tournament_by_id(tournament_id)
             if not tournament:
                 raise HTTPException(status_code=404, detail="Tournament not found")
-            return format_tournament_for_api(tournament)
+            return tournament
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
