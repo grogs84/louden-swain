@@ -380,3 +380,62 @@ async def debug_wrestler_data(wrestler_id: str, db: AsyncSession = Depends(get_d
         }
     except Exception as e:
         return {"error": str(e)}
+
+@app.get("/debug/schema")
+async def debug_schema():
+    """Debug endpoint to check table schemas"""
+    try:
+        from app.database.database import get_db
+        db = None
+        async for session in get_db():
+            db = session
+            break
+        
+        # Check table structures
+        tables_info = {}
+        
+        # Check person table structure
+        result = await db.execute(text("""
+            SELECT column_name, data_type 
+            FROM information_schema.columns 
+            WHERE table_name = 'person' 
+            ORDER BY ordinal_position
+        """))
+        tables_info['person'] = [dict(row) for row in result.fetchall()]
+        
+        # Check match table structure
+        result = await db.execute(text("""
+            SELECT column_name, data_type 
+            FROM information_schema.columns 
+            WHERE table_name = 'match' 
+            ORDER BY ordinal_position
+        """))
+        tables_info['match'] = [dict(row) for row in result.fetchall()]
+        
+        # Check participant table structure
+        result = await db.execute(text("""
+            SELECT column_name, data_type 
+            FROM information_schema.columns 
+            WHERE table_name = 'participant' 
+            ORDER BY ordinal_position
+        """))
+        tables_info['participant'] = [dict(row) for row in result.fetchall()]
+        
+        # Check role table structure
+        result = await db.execute(text("""
+            SELECT column_name, data_type 
+            FROM information_schema.columns 
+            WHERE table_name = 'role' 
+            ORDER BY ordinal_position
+        """))
+        tables_info['role'] = [dict(row) for row in result.fetchall()]
+        
+        return {
+            "tables": tables_info,
+            "status": "success"
+        }
+    except Exception as e:
+        return {
+            "error": str(e),
+            "status": "failed"
+        }
