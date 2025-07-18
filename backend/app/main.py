@@ -189,3 +189,49 @@ async def test_supabase_client():
             "status": "error",
             "message": f"Supabase client test failed: {str(e)}"
         }
+
+@app.get("/debug/db-info")
+async def debug_database_info():
+    """Debug endpoint to check database configuration"""
+    try:
+        return {
+            "use_duckdb": settings.use_duckdb,
+            "database_url_configured": bool(settings.database_url),
+            "database_url_prefix": settings.database_url[:20] + "..." if settings.database_url else None,
+            "environment": "production" if not settings.use_duckdb else "development"
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+@app.get("/debug/db-test")
+async def debug_database_test():
+    """Test actual database connection and data"""
+    try:
+        if settings.use_duckdb:
+            return {"error": "DuckDB mode - not testing Supabase"}
+        
+        from app.database.database import get_db
+        db = None
+        async for session in get_db():
+            db = session
+            break
+        
+        if not db:
+            return {"error": "Could not get database session"}
+        
+        # Test a simple query
+        from sqlalchemy import text
+        result = await db.execute(text("SELECT COUNT(*) as count FROM person LIMIT 1"))
+        count = result.scalar()
+        
+        return {
+            "database_connected": True,
+            "person_count": count,
+            "status": "success"
+        }
+    except Exception as e:
+        return {
+            "database_connected": False,
+            "error": str(e),
+            "status": "failed"
+        }
