@@ -117,16 +117,46 @@ async def get_wrestler_stats(
     wrestler_id: Union[int, str],
     db: AsyncSession = Depends(get_db)
 ):
-    """Get wrestler statistics - simplified for Supabase schema"""
+    """Get wrestler statistics using participant_match table"""
     try:
-        # Check if wrestler exists
-        wrestler_query = text("""
-            SELECT p.person_id, p.first_name, p.last_name
+        # Get match statistics using the participant_match bridge table
+        stats_query = text("""
+            SELECT 
+                COUNT(*) as total_matches,
+                SUM(CASE WHEN pm.is_winner = true THEN 1 ELSE 0 END) as wins,
+                SUM(CASE WHEN pm.is_winner = false THEN 1 ELSE 0 END) as losses
             FROM person p
-            WHERE p.person_id = :wrestler_id
+            JOIN role r ON p.person_id = r.person_id
+            JOIN participant pt ON r.role_id = pt.role_id
+            JOIN participant_match pm ON pt.participant_id = pm.participant_id
+            WHERE p.person_id = :wrestler_id AND r.role_type = 'wrestler'
         """)
         
-        result = await db.execute(wrestler_query, {"wrestler_id": wrestler_id})
+        result = await db.execute(stats_query, {"wrestler_id": wrestler_id})
+        stats = result.fetchone()
+        
+        if stats and stats.total_matches > 0:
+            total_matches = stats.total_matches
+            wins = stats.wins or 0
+            losses = stats.losses or 0
+            win_percentage = round((wins / total_matches * 100), 1) if total_matches > 0 else 0
+        else:
+            total_matches = wins = losses = win_percentage = 0
+        
+        return {
+            "total_matches": total_matches,
+            "wins": wins,
+            "losses": losses,
+            "win_percentage": win_percentage
+        }
+    except Exception as e:
+        return {
+            "total_matches": 0,
+            "wins": 0,
+            "losses": 0,
+            "win_percentage": 0,
+            "error": str(e)
+        }
         wrestler = result.fetchone()
         
         if not wrestler:
@@ -178,40 +208,81 @@ async def get_wrestler_matches(
     skip: int = 0,
     db: AsyncSession = Depends(get_db)
 ):
-    """Get wrestler match history - simplified for Supabase schema"""
+    """Get wrestler match history using participant_match table"""
     
     try:
-        # Check if wrestler exists
-        wrestler_query = text("""
-            SELECT p.person_id, p.first_name, p.last_name
+        # Get match history with opponent info using participant_match bridge table
+        matches_query = text("""
+            SELECT DISTINCT
+                m.match_id,
+                m.round,
+                m.round_order,
+                pm.is_winner,
+                pm.score,
+                pm.result_type,
+                pm.fall_time,
+                t.name as tournament_name,
+                t.year as tournament_year,
+                t.location as tournament_location,
+                -- Get opponent info
+                p_opp.person_id as opponent_id,
+                p_opp.first_name as opponent_first_name,
+                p_opp.last_name as opponent_last_name,
+                s_opp.name as opponent_school_name
             FROM person p
-            WHERE p.person_id = :wrestler_id
+            JOIN role r ON p.person_id = r.person_id
+            JOIN participant pt ON r.role_id = pt.role_id
+            JOIN participant_match pm ON pt.participant_id = pm.participant_id
+            JOIN match m ON pm.match_id = m.match_id
+            LEFT JOIN tournament t ON m.tournament_id = t.tournament_id
+            -- Get opponent participant in same match
+            LEFT JOIN participant_match pm_opp ON m.match_id = pm_opp.match_id AND pm_opp.participant_id != pm.participant_id
+            LEFT JOIN participant pt_opp ON pm_opp.participant_id = pt_opp.participant_id
+            LEFT JOIN role r_opp ON pt_opp.role_id = r_opp.role_id
+            LEFT JOIN person p_opp ON r_opp.person_id = p_opp.person_id
+            LEFT JOIN school s_opp ON pt_opp.school_id = s_opp.school_id
+            WHERE p.person_id = :wrestler_id AND r.role_type = 'wrestler'
+            ORDER BY t.year DESC, m.round_order ASC
+            OFFSET :skip LIMIT :limit
         """)
         
-        result = await db.execute(wrestler_query, {"wrestler_id": wrestler_id})
-        wrestler = result.fetchone()
+        result = await db.execute(matches_query, {
+            "wrestler_id": wrestler_id, 
+            "skip": skip, 
+            "limit": limit
+        })
+        matches = result.fetchall()
         
-        if not wrestler:
-            return []
+        # Format matches for response
+        formatted_matches = []
+        for match in matches:
+            result_display = "W" if match.is_winner else "L"
+            
+            formatted_match = {
+                "match_id": match.match_id,
+                "tournament": {
+                    "name": title_case_name(match.tournament_name) if match.tournament_name else "Unknown Tournament",
+                    "year": match.tournament_year,
+                    "location": title_case_name(match.tournament_location) if match.tournament_location else None
+                },
+                "round": match.round,
+                "result": result_display,
+                "score": str(match.score) if match.score else "N/A",
+                "result_type": title_case_name(match.result_type) if match.result_type else "Decision",
+                "fall_time": match.fall_time,
+                "opponent": {
+                    "id": match.opponent_id,
+                    "first_name": title_case_name(match.opponent_first_name) if match.opponent_first_name else None,
+                    "last_name": title_case_name(match.opponent_last_name) if match.opponent_last_name else None,
+                    "school": {
+                        "name": title_case_name(match.opponent_school_name) if match.opponent_school_name else None
+                    }
+                }
+            }
+            formatted_matches.append(formatted_match)
         
-        # Get participant info for this wrestler
-        participant_query = text("""
-            SELECT pt.role_id, pt.weight_class, pt.year, pt.school_id
-            FROM participant pt
-            JOIN role r ON pt.role_id = r.role_id
-            WHERE r.person_id = :wrestler_id AND r.role_type = 'wrestler'
-            LIMIT 5
-        """)
+        return formatted_matches
         
-        result = await db.execute(participant_query, {"wrestler_id": wrestler_id})
-        participants = result.fetchall()
-        
-        # For now, return empty matches since the schema doesn't support
-        # the complex match queries until we understand the relationship
-        return []
-        
-    except Exception as e:
-        return []
     except Exception as e:
         # Return empty matches if query fails
         return []
