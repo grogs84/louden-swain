@@ -24,16 +24,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Create tables on startup
-@app.on_event("startup")
-async def startup_event():
-    if not (settings.use_duckdb or os.getenv("USE_DUCKDB", "false").lower() == "true"):
-        # Only create PostgreSQL tables if not using DuckDB
-        from app.models.models import Base
-        from app.database.database import engine
-        async with engine.begin() as conn:
-            # Create all tables
-            await conn.run_sync(Base.metadata.create_all)
+# Create tables on startup - DISABLED for Supabase
+# @app.on_event("startup")
+# async def startup_event():
+#     if not (settings.use_duckdb or os.getenv("USE_DUCKDB", "false").lower() == "true"):
+#         # Only create PostgreSQL tables if not using DuckDB
+#         from app.models.models import Base
+#         from app.database.database import engine
+#         async with engine.begin() as conn:
+#             # Create all tables
+#             await conn.run_sync(Base.metadata.create_all)
 
 # Include routers based on database mode
 if settings.use_duckdb or os.getenv("USE_DUCKDB", "false").lower() == "true":
@@ -45,23 +45,16 @@ if settings.use_duckdb or os.getenv("USE_DUCKDB", "false").lower() == "true":
         print("DuckDB router enabled for local development")
     except ImportError:
         print("DuckDB router could not be imported - DuckDB functionality disabled")
-        # Fallback to regular routers
-        from app.routers import wrestlers, schools, coaches, tournaments, brackets, search
+        # Fallback to working routers only
+        from app.routers import wrestlers, search
         app.include_router(wrestlers.router, prefix="/api/wrestlers", tags=["wrestlers"])
-        app.include_router(schools.router, prefix="/api/schools", tags=["schools"])
-        app.include_router(coaches.router, prefix="/api/coaches", tags=["coaches"])
-        app.include_router(tournaments.router, prefix="/api/tournaments", tags=["tournaments"])
-        app.include_router(brackets.router, prefix="/api/brackets", tags=["brackets"])
         app.include_router(search.router, prefix="/api/search", tags=["search"])
 else:
-    # PostgreSQL mode - use regular routers
-    from app.routers import wrestlers, schools, coaches, tournaments, brackets, search
+    # PostgreSQL mode - use only working routers for Supabase
+    from app.routers import wrestlers, search
     app.include_router(wrestlers.router, prefix="/api/wrestlers", tags=["wrestlers"])
-    app.include_router(schools.router, prefix="/api/schools", tags=["schools"])
-    app.include_router(coaches.router, prefix="/api/coaches", tags=["coaches"])
-    app.include_router(tournaments.router, prefix="/api/tournaments", tags=["tournaments"])
-    app.include_router(brackets.router, prefix="/api/brackets", tags=["brackets"])
     app.include_router(search.router, prefix="/api/search", tags=["search"])
+    # NOTE: schools, coaches, tournaments, brackets routers disabled until migrated to raw SQL
 
 @app.get("/")
 async def root():
