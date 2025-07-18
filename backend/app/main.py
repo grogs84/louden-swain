@@ -58,11 +58,11 @@ else:
 
 @app.get("/")
 async def root():
-    return {"message": "NCAA Wrestling Championship API - Basic Test"}
+    return {"message": "NCAA Wrestling Championship API - Working on Railway!"}
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy"}
+    return {"status": "healthy", "database": "supabase", "environment": "production"}
 
 @app.get("/test-db")
 async def test_database_connection():
