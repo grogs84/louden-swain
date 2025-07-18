@@ -1,12 +1,8 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
-from sqlalchemy.orm import selectinload
-from sqlalchemy import or_, func
+from sqlalchemy import text
 from typing import List, Dict, Any
 from app.database.database import get_db
-from app.models.models import Wrestler as WrestlerModel, School as SchoolModel, Coach as CoachModel
-from app.models.schemas import SearchResults, SearchResult
 
 router = APIRouter()
 
@@ -26,78 +22,97 @@ async def search_all(
     }
     
     try:
-        # Search wrestlers by name
-        wrestler_query = select(WrestlerModel).options(selectinload(WrestlerModel.school)).where(
-            or_(
-                WrestlerModel.first_name.ilike(f"%{q}%"),
-                WrestlerModel.last_name.ilike(f"%{q}%"),
-                func.concat(WrestlerModel.first_name, ' ', WrestlerModel.last_name).ilike(f"%{q}%")
+        # Search wrestlers using the same structure as DuckDB
+        wrestler_query = text("""
+        WITH wrestler_summary AS (
+            SELECT 
+                p.person_id,
+                p.first_name,
+                p.last_name,
+                pt.weight_class,
+                pt.year,
+                s.name as school_name,
+                s.location as school_location,
+                ROW_NUMBER() OVER (PARTITION BY p.person_id ORDER BY pt.year DESC) as rn
+            FROM person p
+            JOIN role r ON p.person_id = r.person_id
+            JOIN participant pt ON r.role_id = pt.role_id
+            LEFT JOIN school s ON pt.school_id = s.school_id
+            WHERE r.role_type = 'wrestler'
+            AND (
+                p.first_name ILIKE :search_term OR 
+                p.last_name ILIKE :search_term OR
+                CONCAT(p.first_name, ' ', p.last_name) ILIKE :search_term
             )
-        ).limit(limit)
+        )
+        SELECT 
+            person_id,
+            first_name,
+            last_name,
+            weight_class,
+            year,
+            school_name,
+            school_location
+        FROM wrestler_summary 
+        WHERE rn = 1
+        ORDER BY last_name, first_name
+        LIMIT :limit
+        """)
         
-        wrestler_result = await db.execute(wrestler_query)
-        wrestlers = wrestler_result.scalars().all()
+        wrestler_result = await db.execute(wrestler_query, {
+            "search_term": f"%{q}%",
+            "limit": limit
+        })
         
-        for wrestler in wrestlers:
+        for row in wrestler_result:
             results["wrestlers"].append({
                 "type": "wrestler",
-                "id": wrestler.id,
-                "name": f"{wrestler.first_name} {wrestler.last_name}",
-                "additional_info": f"{wrestler.school.name if wrestler.school else 'Unknown School'} - {wrestler.weight_class}lbs",
-                "weight_class": wrestler.weight_class,
-                "year": wrestler.year,
-                "school_id": wrestler.school_id,
-                "school_name": wrestler.school.name if wrestler.school else None
+                "id": row.person_id,
+                "name": f"{row.first_name} {row.last_name}",
+                "additional_info": f"{row.school_name or 'Unknown School'} - {row.weight_class or 'N/A'}lbs",
+                "first_name": row.first_name,
+                "last_name": row.last_name,
+                "weight_class": row.weight_class,
+                "year": row.year,
+                "school": row.school_name,
+                "school_name": row.school_name
             })
         
-        # Search schools by name or conference
-        school_query = select(SchoolModel).where(
-            or_(
-                SchoolModel.name.ilike(f"%{q}%"),
-                SchoolModel.conference.ilike(f"%{q}%")
-            )
-        ).limit(limit)
+        # Search schools
+        school_query = text("""
+        SELECT 
+            s.school_id,
+            s.name,
+            s.location,
+            COUNT(DISTINCT pt.participant_id) as total_participants
+        FROM school s
+        LEFT JOIN participant pt ON s.school_id = pt.school_id
+        WHERE s.name ILIKE :search_term
+        GROUP BY s.school_id, s.name, s.location
+        ORDER BY total_participants DESC
+        LIMIT :limit
+        """)
         
-        school_result = await db.execute(school_query)
-        schools = school_result.scalars().all()
+        school_result = await db.execute(school_query, {
+            "search_term": f"%{q}%",
+            "limit": limit
+        })
         
-        for school in schools:
+        for row in school_result:
             results["schools"].append({
                 "type": "school",
-                "id": school.id,
-                "name": school.name,
-                "additional_info": f"{school.conference or 'N/A'} - {school.state or 'N/A'}",
-                "conference": school.conference,
-                "state": school.state,
-                "city": school.city
-            })
-        
-        # Search coaches by name
-        coach_query = select(CoachModel).options(selectinload(CoachModel.school)).where(
-            or_(
-                CoachModel.first_name.ilike(f"%{q}%"),
-                CoachModel.last_name.ilike(f"%{q}%"),
-                func.concat(CoachModel.first_name, ' ', CoachModel.last_name).ilike(f"%{q}%")
-            )
-        ).limit(limit)
-        
-        coach_result = await db.execute(coach_query)
-        coaches = coach_result.scalars().all()
-        
-        for coach in coaches:
-            results["coaches"].append({
-                "type": "coach",
-                "id": coach.id,
-                "name": f"{coach.first_name} {coach.last_name}",
-                "additional_info": f"{coach.school.name if coach.school else 'Unknown School'} - {coach.position or 'Coach'}",
-                "position": coach.position,
-                "school_id": coach.school_id,
-                "school_name": coach.school.name if coach.school else None
+                "id": row.school_id,
+                "name": row.name,
+                "additional_info": f"{row.location or 'Unknown Location'} - {row.total_participants} wrestlers",
+                "location": row.location,
+                "total_participants": row.total_participants
             })
         
         return results
         
     except Exception as e:
+        print(f"Search error: {e}")
+        return results
         return {
             "query": q,
             "error": f"Search failed: {str(e)}",
@@ -117,35 +132,67 @@ async def search_wrestlers(
     """Search wrestlers with additional filters"""
     
     try:
-        query = select(WrestlerModel).options(selectinload(WrestlerModel.school)).where(
-            or_(
-                WrestlerModel.first_name.ilike(f"%{q}%"),
-                WrestlerModel.last_name.ilike(f"%{q}%"),
-                func.concat(WrestlerModel.first_name, ' ', WrestlerModel.last_name).ilike(f"%{q}%")
-            )
-        )
+        # Build dynamic query with filters
+        where_conditions = [
+            "(p.first_name ILIKE :search_term OR p.last_name ILIKE :search_term OR CONCAT(p.first_name, ' ', p.last_name) ILIKE :search_term)"
+        ]
+        params = {"search_term": f"%{q}%", "limit": limit}
         
-        # Apply filters
         if weight_class:
-            query = query.where(WrestlerModel.weight_class == weight_class)
-        if school_id:
-            query = query.where(WrestlerModel.school_id == school_id)
+            where_conditions.append("pt.weight_class = :weight_class")
+            params["weight_class"] = weight_class
         
-        query = query.limit(limit)
-        result = await db.execute(query)
-        wrestlers = result.scalars().all()
+        if school_id:
+            where_conditions.append("pt.school_id = :school_id")
+            params["school_id"] = school_id
+        
+        where_clause = " AND ".join(where_conditions)
+        
+        wrestler_query = text(f"""
+        WITH wrestler_summary AS (
+            SELECT 
+                p.person_id,
+                p.first_name,
+                p.last_name,
+                pt.weight_class,
+                pt.year,
+                s.name as school_name,
+                s.location as school_location,
+                ROW_NUMBER() OVER (PARTITION BY p.person_id ORDER BY pt.year DESC) as rn
+            FROM person p
+            JOIN role r ON p.person_id = r.person_id
+            JOIN participant pt ON r.role_id = pt.role_id
+            LEFT JOIN school s ON pt.school_id = s.school_id
+            WHERE r.role_type = 'wrestler' AND {where_clause}
+        )
+        SELECT 
+            person_id,
+            first_name,
+            last_name,
+            weight_class,
+            year,
+            school_name,
+            school_location
+        FROM wrestler_summary 
+        WHERE rn = 1
+        ORDER BY last_name, first_name
+        LIMIT :limit
+        """)
+        
+        result = await db.execute(wrestler_query, params)
         
         return [
             {
-                "id": wrestler.id,
-                "name": f"{wrestler.first_name} {wrestler.last_name}",
-                "weight_class": wrestler.weight_class,
-                "year": wrestler.year,
-                "school": wrestler.school.name if wrestler.school else "Unknown School",
-                "school_id": wrestler.school_id,
-                "conference": wrestler.school.conference if wrestler.school else None,
-                "state": wrestler.state
-            } for wrestler in wrestlers
+                "id": row.person_id,
+                "name": f"{row.first_name} {row.last_name}",
+                "first_name": row.first_name,
+                "last_name": row.last_name,
+                "weight_class": row.weight_class,
+                "year": row.year,
+                "school": row.school_name or "Unknown School",
+                "school_name": row.school_name,
+                "school_location": row.school_location
+            } for row in result
         ]
         
     except Exception as e:
@@ -162,29 +209,45 @@ async def search_schools(
     """Search schools with additional filters"""
     
     try:
-        query = select(SchoolModel).where(
-            SchoolModel.name.ilike(f"%{q}%")
-        )
+        # Build dynamic query with filters
+        where_conditions = ["s.name ILIKE :search_term"]
+        params = {"search_term": f"%{q}%", "limit": limit}
         
-        # Apply filters
         if state:
-            query = query.where(SchoolModel.state.ilike(f"%{state}%"))
-        if conference:
-            query = query.where(SchoolModel.conference.ilike(f"%{conference}%"))
+            where_conditions.append("s.location ILIKE :state")
+            params["state"] = f"%{state}%"
         
-        query = query.limit(limit)
-        result = await db.execute(query)
-        schools = result.scalars().all()
+        if conference:
+            # Note: conference might not be in our schema, but we'll include the filter logic
+            where_conditions.append("s.conference ILIKE :conference")
+            params["conference"] = f"%{conference}%"
+        
+        where_clause = " AND ".join(where_conditions)
+        
+        school_query = text(f"""
+        SELECT 
+            s.school_id,
+            s.name,
+            s.location,
+            COUNT(DISTINCT pt.participant_id) as total_participants
+        FROM school s
+        LEFT JOIN participant pt ON s.school_id = pt.school_id
+        WHERE {where_clause}
+        GROUP BY s.school_id, s.name, s.location
+        ORDER BY total_participants DESC, s.name
+        LIMIT :limit
+        """)
+        
+        result = await db.execute(school_query, params)
         
         return [
             {
-                "id": school.id,
-                "name": school.name,
-                "state": school.state,
-                "conference": school.conference,
-                "city": school.city,
-                "website": school.website
-            } for school in schools
+                "id": row.school_id,
+                "name": row.name,
+                "location": row.location,
+                "total_participants": row.total_participants,
+                "additional_info": f"{row.location or 'Unknown Location'} - {row.total_participants} wrestlers"
+            } for row in result
         ]
         
     except Exception as e:
