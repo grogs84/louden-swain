@@ -7,7 +7,7 @@ from app.database.database import get_db
 router = APIRouter()
 
 def title_case_name(name: str) -> str:
-    """Apply title case formatting to names"""
+    """Apply title case formatting to names (updated for Supabase)"""
     if not name:
         return name
     
