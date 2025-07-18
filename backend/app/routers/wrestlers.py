@@ -130,7 +130,7 @@ async def get_wrestler(
     wrestler_id: Union[int, str],
     db: AsyncSession = Depends(get_db)
 ):
-    """Get a specific wrestler by ID with complete details including match history"""
+    """Get a specific wrestler by ID with basic details and simplified match history"""
     
     # First get basic wrestler info
     wrestler_query = text("""
@@ -160,113 +160,25 @@ async def get_wrestler(
     if not wrestler:
         raise HTTPException(status_code=404, detail="Wrestler not found")
     
-    # Get match history with comprehensive details
-    matches_query = text("""
-        SELECT DISTINCT
-            m.match_id,
-            m.year,
-            t.name as tournament_name,
-            t.location as tournament_location,
-            t.start_date,
-            t.end_date,
-            CASE 
-                WHEN mr.match_result_id IS NOT NULL THEN
-                    CASE 
-                        WHEN mr.winner_role_id = r_self.role_id THEN 'W'
-                        ELSE 'L'
-                    END
-                ELSE 'N/A'
-            END as result,
-            CASE 
-                WHEN mr.match_result_id IS NOT NULL THEN
-                    CASE 
-                        WHEN mr.winner_role_id = r_self.role_id THEN
-                            COALESCE(mr.winner_score, 0) || '-' || COALESCE(mr.loser_score, 0)
-                        ELSE
-                            COALESCE(mr.loser_score, 0) || '-' || COALESCE(mr.winner_score, 0)
-                    END
-                ELSE 'N/A'
-            END as score,
-            CASE 
-                WHEN mr.result_type = 'fall' THEN 'Fall'
-                WHEN mr.result_type = 'tech_fall' THEN 'Tech Fall'
-                WHEN mr.result_type = 'major_decision' THEN 'Major Decision'
-                WHEN mr.result_type = 'decision' THEN 'Decision'
-                WHEN mr.result_type = 'forfeit' THEN 'Forfeit'
-                WHEN mr.result_type = 'disqualification' THEN 'Disqualification'
-                WHEN mr.result_type = 'injury_default' THEN 'Injury Default'
-                ELSE COALESCE(mr.result_type, 'Decision')
-            END as result_type,
-            -- Opponent info
-            p_opp.person_id as opponent_id,
-            p_opp.first_name as opponent_first_name,
-            p_opp.last_name as opponent_last_name,
-            s_opp.name as opponent_school_name,
-            s_opp.location as opponent_school_location,
-            -- Round info  
-            r_info.round_name,
-            r_info.round_number
+    # Get simplified match count and basic stats
+    stats_query = text("""
+        SELECT 
+            COUNT(*) as total_matches,
+            COUNT(CASE WHEN mr.winner_role_id = r_self.role_id THEN 1 END) as wins
         FROM person p_self
         JOIN role r_self ON p_self.person_id = r_self.person_id
         JOIN participant pt_self ON r_self.role_id = pt_self.role_id
         JOIN match m ON (pt_self.role_id = m.participant1_role_id OR pt_self.role_id = m.participant2_role_id)
         LEFT JOIN match_result mr ON m.match_id = mr.match_id
-        LEFT JOIN tournament t ON m.tournament_id = t.tournament_id
-        -- Get opponent info
-        LEFT JOIN participant pt_opp ON (
-            CASE 
-                WHEN pt_self.role_id = m.participant1_role_id THEN m.participant2_role_id
-                ELSE m.participant1_role_id
-            END = pt_opp.role_id
-        )
-        LEFT JOIN role r_opp ON pt_opp.role_id = r_opp.role_id
-        LEFT JOIN person p_opp ON r_opp.person_id = p_opp.person_id
-        LEFT JOIN school s_opp ON pt_opp.school_id = s_opp.school_id
-        -- Round info
-        LEFT JOIN round r_info ON m.round_id = r_info.round_id
-        WHERE p_self.person_id = :wrestler_id
-            AND r_self.role_type = 'wrestler'
-        ORDER BY m.year ASC, t.start_date ASC, r_info.round_number ASC
+        WHERE p_self.person_id = :wrestler_id AND r_self.role_type = 'wrestler'
     """)
     
-    result = await db.execute(matches_query, {"wrestler_id": wrestler_id})
-    matches = result.fetchall()
+    result = await db.execute(stats_query, {"wrestler_id": wrestler_id})
+    stats = result.fetchone()
     
-    # Calculate statistics
-    total_matches = len(matches)
-    wins = sum(1 for match in matches if match.result == 'W')
+    total_matches = stats.total_matches if stats else 0
+    wins = stats.wins if stats else 0
     losses = total_matches - wins
-    
-    # Format matches for response
-    formatted_matches = []
-    for match in matches:
-        formatted_match = {
-            "match_id": match.match_id,
-            "year": match.year,
-            "tournament": {
-                "name": title_case_name(match.tournament_name) if match.tournament_name else "Unknown Tournament",
-                "location": title_case_name(match.tournament_location) if match.tournament_location else None,
-                "start_date": match.start_date.isoformat() if match.start_date else None,
-                "end_date": match.end_date.isoformat() if match.end_date else None
-            },
-            "opponent": {
-                "id": match.opponent_id,
-                "first_name": title_case_name(match.opponent_first_name) if match.opponent_first_name else None,
-                "last_name": title_case_name(match.opponent_last_name) if match.opponent_last_name else None,
-                "school": {
-                    "name": title_case_name(match.opponent_school_name) if match.opponent_school_name else None,
-                    "location": title_case_name(match.opponent_school_location) if match.opponent_school_location else None
-                }
-            },
-            "result": match.result,
-            "score": match.score,
-            "result_type": match.result_type,
-            "round": {
-                "name": match.round_name,
-                "number": match.round_number
-            }
-        }
-        formatted_matches.append(formatted_match)
     
     return {
         "id": wrestler.person_id,
@@ -286,5 +198,5 @@ async def get_wrestler(
             "losses": losses,
             "win_percentage": round((wins / total_matches * 100), 1) if total_matches > 0 else 0
         },
-        "matches": formatted_matches
+        "matches": []  # Simplified - no detailed match history for now
     }
