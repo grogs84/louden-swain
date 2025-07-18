@@ -1,6 +1,9 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import text
 from app.config import settings
+from app.database.database import get_db
 import os
 
 app = FastAPI(
@@ -196,3 +199,184 @@ async def debug_check_spencer():
             "error": str(e),
             "status": "failed"
         }
+
+@app.get("/debug/sample-people")
+async def debug_sample_people():
+    """Get a sample of people from the database"""
+    try:
+        from app.database.database import get_db
+        db = None
+        async for session in get_db():
+            db = session
+            break
+        
+        if not db:
+            return {"error": "Could not get database session"}
+        
+        # Get first 10 people
+        from sqlalchemy import text
+        result = await db.execute(text("""
+            SELECT person_id, first_name, last_name 
+            FROM person 
+            ORDER BY last_name, first_name 
+            LIMIT 10
+        """))
+        people = result.fetchall()
+        
+        return {
+            "sample_people": [
+                {
+                    "person_id": p.person_id,
+                    "first_name": p.first_name,
+                    "last_name": p.last_name
+                }
+                for p in people
+            ]
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+@app.get("/debug/spencer-variations")
+async def debug_spencer_variations():
+    """Look for Spencer Lee with different name variations"""
+    try:
+        from app.database.database import get_db
+        db = None
+        async for session in get_db():
+            db = session
+            break
+        
+        if not db:
+            return {"error": "Could not get database session"}
+        
+        from sqlalchemy import text
+        # Look for anyone with Spencer in first name and Lee in last name
+        result = await db.execute(text("""
+            SELECT person_id, first_name, last_name 
+            FROM person 
+            WHERE first_name ILIKE '%spencer%' 
+            OR last_name ILIKE '%lee%'
+            ORDER BY last_name, first_name 
+            LIMIT 20
+        """))
+        people = result.fetchall()
+        
+        return {
+            "spencer_lee_variants": [
+                {
+                    "person_id": p.person_id,
+                    "first_name": p.first_name,
+                    "last_name": p.last_name
+                }
+                for p in people
+            ]
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+@app.get("/debug/check-roles/{person_id}")
+async def debug_check_roles(person_id: str):
+    """Check what roles exist for a specific person"""
+    try:
+        from app.database.database import get_db
+        db = None
+        async for session in get_db():
+            db = session
+            break
+        
+        if not db:
+            return {"error": "Could not get database session"}
+        
+        from sqlalchemy import text
+        # Check roles for this person
+        result = await db.execute(text("""
+            SELECT r.role_id, r.role_type, r.person_id
+            FROM role r
+            WHERE r.person_id = :person_id
+        """), {"person_id": person_id})
+        roles = result.fetchall()
+        
+        # Check participants for this person
+        result2 = await db.execute(text("""
+            SELECT pt.role_id, pt.weight_class, pt.year, pt.school_id
+            FROM role r
+            JOIN participant pt ON r.role_id = pt.role_id
+            WHERE r.person_id = :person_id
+        """), {"person_id": person_id})
+        participants = result2.fetchall()
+        
+        return {
+            "person_id": person_id,
+            "roles": [
+                {
+                    "role_id": r.role_id,
+                    "role_type": r.role_type,
+                    "person_id": r.person_id
+                }
+                for r in roles
+            ],
+            "participants": [
+                {
+                    "role_id": p.role_id,
+                    "weight_class": p.weight_class,
+                    "year": p.year,
+                    "school_id": p.school_id
+                }
+                for p in participants
+            ]
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+@app.get("/debug/wrestler/{wrestler_id}")
+async def debug_wrestler_data(wrestler_id: str, db: AsyncSession = Depends(get_db)):
+    """Debug endpoint to check wrestler data in detail"""
+    try:
+        # Check if person exists
+        person_query = text("SELECT person_id, first_name, last_name FROM person WHERE person_id = :wrestler_id")
+        result = await db.execute(person_query, {"wrestler_id": wrestler_id})
+        person = result.fetchone()
+        
+        if not person:
+            return {"error": "Person not found", "wrestler_id": wrestler_id}
+        
+        # Check roles for this person
+        roles_query = text("SELECT role_id, role_type FROM role WHERE person_id = :wrestler_id")
+        result = await db.execute(roles_query, {"wrestler_id": wrestler_id})
+        roles = result.fetchall()
+        
+        # Check participants for this person
+        participants_query = text("""
+            SELECT pt.role_id, pt.weight_class, pt.year, pt.school_id 
+            FROM participant pt 
+            JOIN role r ON pt.role_id = r.role_id 
+            WHERE r.person_id = :wrestler_id
+        """)
+        result = await db.execute(participants_query, {"wrestler_id": wrestler_id})
+        participants = result.fetchall()
+        
+        # Check matches for this person
+        matches_query = text("""
+            SELECT m.match_id, m.year 
+            FROM match m 
+            JOIN participant pt ON (m.participant1_role_id = pt.role_id OR m.participant2_role_id = pt.role_id)
+            JOIN role r ON pt.role_id = r.role_id 
+            WHERE r.person_id = :wrestler_id 
+            LIMIT 5
+        """)
+        result = await db.execute(matches_query, {"wrestler_id": wrestler_id})
+        matches = result.fetchall()
+        
+        return {
+            "person": {
+                "person_id": person.person_id,
+                "first_name": person.first_name,
+                "last_name": person.last_name
+            },
+            "roles": [{"role_id": r.role_id, "role_type": r.role_type} for r in roles],
+            "participants": [{"role_id": p.role_id, "weight_class": p.weight_class, "year": p.year, "school_id": p.school_id} for p in participants],
+            "matches": [{"match_id": m.match_id, "year": m.year} for m in matches],
+            "match_count": len(matches)
+        }
+    except Exception as e:
+        return {"error": str(e)}
