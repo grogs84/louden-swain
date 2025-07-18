@@ -105,8 +105,8 @@ const WrestlerPage = () => {
               {wrestler.school?.name}
             </Typography>
             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 2 }}>
-              <Chip label={`${wrestler.weight_class} lbs`} color="primary" />
-              <Chip label={wrestler.year || 'Senior'} variant="outlined" />
+              {/* <Chip label={`${wrestler.weight_class} lbs`} color="primary" /> */}
+              {/* <Chip label={wrestler.year || 'Senior'} variant="outlined" /> */}
               {wrestler.hometown && wrestler.state && (
                 <Chip label={`${wrestler.hometown}, ${wrestler.state}`} variant="outlined" />
               )}

@@ -80,8 +80,6 @@ async def get_wrestlers(
                     "id": i + 1,
                     "first_name": (wrestler.get('first_name') or '').title(),
                     "last_name": (wrestler.get('last_name') or '').title(),
-                    "weight_class": int(wrestler.get('weight_class', 125)) if wrestler.get('weight_class') and wrestler.get('weight_class').isdigit() else 125,
-                    "year": "Senior",  # Default since DuckDB year is tournament year
                     "school_id": 1,  # Simplified for API compatibility
                     "school_name": (wrestler.get('school_name') or '').title(),
                     "wins": 15,  # Placeholder - would need to calculate from matches
@@ -264,8 +262,7 @@ async def search_all(
                     "type": "wrestler",
                     "id": wrestler.get('person_id'),
                     "name": f"{wrestler.get('first_name', '')} {wrestler.get('last_name', '')}".strip(),
-                    "additional_info": f"{wrestler.get('school_name', 'Unknown School')} - {wrestler.get('weight_class', 'N/A')}lbs",
-                    "weight_class": wrestler.get('weight_class'),
+                    "additional_info": f"{wrestler.get('school_name', 'Unknown School')}",
                     "school_name": wrestler.get('school_name')
                 })
             
@@ -308,8 +305,6 @@ async def search_wrestlers(
                 results.append({
                     "id": wrestler.get('person_id'),
                     "name": f"{wrestler.get('first_name', '')} {wrestler.get('last_name', '')}".strip(),
-                    "weight_class": wrestler.get('weight_class'),
-                    "year": wrestler.get('year'),
                     "school": wrestler.get('school_name'),
                     "school_location": wrestler.get('school_location')
                 })
