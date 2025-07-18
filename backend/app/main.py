@@ -191,7 +191,7 @@ async def debug_check_spencer():
         
         return {
             "spencer_by_uuid": dict(spencer_by_uuid) if spencer_by_uuid else None,
-            "spencer_by_name": [dict(row) for row in spencer_by_name],
+            "spencer_by_name": [(row[0], row[1], row[2]) for row in spencer_by_name],
             "status": "success"
         }
     except Exception as e:
@@ -401,7 +401,7 @@ async def debug_schema():
             WHERE table_name = 'person' 
             ORDER BY ordinal_position
         """))
-        tables_info['person'] = [dict(row) for row in result.fetchall()]
+        tables_info['person'] = [(row[0], row[1]) for row in result.fetchall()]
         
         # Check match table structure
         result = await db.execute(text("""
@@ -410,7 +410,7 @@ async def debug_schema():
             WHERE table_name = 'match' 
             ORDER BY ordinal_position
         """))
-        tables_info['match'] = [dict(row) for row in result.fetchall()]
+        tables_info['match'] = [(row[0], row[1]) for row in result.fetchall()]
         
         # Check participant table structure
         result = await db.execute(text("""
@@ -419,7 +419,7 @@ async def debug_schema():
             WHERE table_name = 'participant' 
             ORDER BY ordinal_position
         """))
-        tables_info['participant'] = [dict(row) for row in result.fetchall()]
+        tables_info['participant'] = [(row[0], row[1]) for row in result.fetchall()]
         
         # Check role table structure
         result = await db.execute(text("""
@@ -428,7 +428,7 @@ async def debug_schema():
             WHERE table_name = 'role' 
             ORDER BY ordinal_position
         """))
-        tables_info['role'] = [dict(row) for row in result.fetchall()]
+        tables_info['role'] = [(row[0], row[1]) for row in result.fetchall()]
         
         return {
             "tables": tables_info,
