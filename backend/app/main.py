@@ -161,3 +161,38 @@ async def debug_database_test():
             "error": str(e),
             "status": "failed"
         }
+
+@app.get("/debug/check-spencer")
+async def debug_check_spencer():
+    """Check if Spencer Lee exists in database"""
+    try:
+        from app.database.database import get_db
+        db = None
+        async for session in get_db():
+            db = session
+            break
+        
+        if not db:
+            return {"error": "Could not get database session"}
+        
+        # Check for Spencer Lee by UUID
+        from sqlalchemy import text
+        uuid_query = text("SELECT person_id, first_name, last_name FROM person WHERE person_id = :id")
+        result = await db.execute(uuid_query, {"id": "5ccf054b-6630-494e-beff-e9c4b8e3bb6a"})
+        spencer_by_uuid = result.fetchone()
+        
+        # Check for Spencer Lee by name
+        name_query = text("SELECT person_id, first_name, last_name FROM person WHERE first_name ILIKE '%spencer%' AND last_name ILIKE '%lee%' LIMIT 5")
+        result = await db.execute(name_query)
+        spencer_by_name = result.fetchall()
+        
+        return {
+            "spencer_by_uuid": dict(spencer_by_uuid) if spencer_by_uuid else None,
+            "spencer_by_name": [dict(row) for row in spencer_by_name],
+            "status": "success"
+        }
+    except Exception as e:
+        return {
+            "error": str(e),
+            "status": "failed"
+        }
