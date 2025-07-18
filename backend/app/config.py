@@ -8,6 +8,9 @@ class Settings(BaseSettings):
     secret_key: str
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
+    # Enable DuckDB for local development
+    use_duckdb: bool = False
+    duckdb_path: str = "wrestling.duckdb"
 
     class Config:
         env_file = ".env"

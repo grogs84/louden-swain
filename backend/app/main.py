@@ -3,6 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.routers import wrestlers, schools, coaches, tournaments, brackets, search
 from app.models.models import Base
 from app.database.database import engine
+from app.config import settings
+import os
 
 app = FastAPI(
     title="NCAA Wrestling Championship API",
@@ -32,13 +34,31 @@ async def startup_event():
         # Create all tables
         await conn.run_sync(Base.metadata.create_all)
 
-# Include routers
-app.include_router(wrestlers.router, prefix="/api/wrestlers", tags=["wrestlers"])
-app.include_router(schools.router, prefix="/api/schools", tags=["schools"])
-app.include_router(coaches.router, prefix="/api/coaches", tags=["coaches"])
-app.include_router(tournaments.router, prefix="/api/tournaments", tags=["tournaments"])
-app.include_router(brackets.router, prefix="/api/brackets", tags=["brackets"])
-app.include_router(search.router, prefix="/api/search", tags=["search"])
+# Include routers based on database mode
+if settings.use_duckdb or os.getenv("USE_DUCKDB", "false").lower() == "true":
+    # DuckDB mode - use DuckDB router with frontend-compatible endpoints
+    try:
+        from app.routers import duckdb_router
+        # Include DuckDB router with standard API paths for frontend compatibility
+        app.include_router(duckdb_router.router, prefix="/api", tags=["duckdb"])
+        print("DuckDB router enabled for local development")
+    except ImportError:
+        print("DuckDB router could not be imported - DuckDB functionality disabled")
+        # Fallback to regular routers
+        app.include_router(wrestlers.router, prefix="/api/wrestlers", tags=["wrestlers"])
+        app.include_router(schools.router, prefix="/api/schools", tags=["schools"])
+        app.include_router(coaches.router, prefix="/api/coaches", tags=["coaches"])
+        app.include_router(tournaments.router, prefix="/api/tournaments", tags=["tournaments"])
+        app.include_router(brackets.router, prefix="/api/brackets", tags=["brackets"])
+        app.include_router(search.router, prefix="/api/search", tags=["search"])
+else:
+    # PostgreSQL mode - use regular routers
+    app.include_router(wrestlers.router, prefix="/api/wrestlers", tags=["wrestlers"])
+    app.include_router(schools.router, prefix="/api/schools", tags=["schools"])
+    app.include_router(coaches.router, prefix="/api/coaches", tags=["coaches"])
+    app.include_router(tournaments.router, prefix="/api/tournaments", tags=["tournaments"])
+    app.include_router(brackets.router, prefix="/api/brackets", tags=["brackets"])
+    app.include_router(search.router, prefix="/api/search", tags=["search"])
 
 @app.get("/")
 async def root():
