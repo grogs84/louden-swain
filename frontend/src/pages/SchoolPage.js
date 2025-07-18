@@ -23,6 +23,7 @@ import {
 } from '@mui/material';
 import { Link } from 'react-router-dom';
 import { schoolsAPI } from '../services/api';
+import { formatFullName, formatSchoolName, formatLocation } from '../utils/formatters';
 
 const SchoolPage = () => {
   const { id } = useParams();
@@ -63,15 +64,15 @@ const SchoolPage = () => {
   const mockCoaches = [
     {
       id: 1,
-      first_name: 'John',
-      last_name: 'Smith',
+      first_name: 'john',
+      last_name: 'smith',
       position: 'Head Coach',
       years_experience: 15,
     },
     {
       id: 2,
-      first_name: 'Mike',
-      last_name: 'Johnson',
+      first_name: 'mike',
+      last_name: 'johnson',
       position: 'Assistant Coach',
       years_experience: 8,
     },
@@ -97,7 +98,7 @@ const SchoolPage = () => {
           </Grid>
           <Grid item xs={12} md={10}>
             <Typography variant="h3" component="h1" gutterBottom>
-              {school.name}
+              {formatSchoolName(school.name)}
             </Typography>
             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 2 }}>
               {school.conference && (
@@ -107,7 +108,7 @@ const SchoolPage = () => {
                 <Chip label={school.state} variant="outlined" />
               )}
               {school.city && school.state && (
-                <Chip label={`${school.city}, ${school.state}`} variant="outlined" />
+                <Chip label={formatLocation(`${school.city}, ${school.state}`)} variant="outlined" />
               )}
             </Box>
             {school.website && (
@@ -189,7 +190,7 @@ const SchoolPage = () => {
                 School Information
               </Typography>
               <Typography variant="body1" paragraph>
-                <strong>Name:</strong> {school.name}
+                <strong>Name:</strong> {formatSchoolName(school.name)}
               </Typography>
               {school.conference && (
                 <Typography variant="body1" paragraph>
@@ -198,7 +199,7 @@ const SchoolPage = () => {
               )}
               {school.city && (
                 <Typography variant="body1" paragraph>
-                  <strong>Location:</strong> {school.city}, {school.state}
+                  <strong>Location:</strong> {formatLocation(`${school.city}, ${school.state}`)}
                 </Typography>
               )}
               {school.website && (
@@ -303,7 +304,7 @@ const SchoolPage = () => {
                             to={`/coach/${coach.id}`}
                             style={{ textDecoration: 'none', color: 'inherit' }}
                           >
-                            {coach.first_name} {coach.last_name}
+                            {formatFullName(coach.first_name, coach.last_name)}
                           </Link>
                         </TableCell>
                         <TableCell>{coach.position}</TableCell>
@@ -342,7 +343,7 @@ const SchoolPage = () => {
                               to={`/wrestler/${wrestler.id}`}
                               style={{ textDecoration: 'none', color: 'inherit' }}
                             >
-                              {wrestler.first_name} {wrestler.last_name}
+                              {formatFullName(wrestler.first_name, wrestler.last_name)}
                             </Link>
                           </TableCell>
                           <TableCell>{wrestler.weight_class} lbs</TableCell>

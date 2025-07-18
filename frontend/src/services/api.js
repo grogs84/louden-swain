@@ -14,6 +14,7 @@ export const wrestlersAPI = {
   getAll: (params = {}) => apiClient.get('/wrestlers', { params }),
   getById: (id) => apiClient.get(`/wrestlers/${id}`),
   getStats: (id) => apiClient.get(`/wrestlers/${id}/stats`),
+  getMatches: (id, params = {}) => apiClient.get(`/wrestlers/${id}/matches`, { params }),
   create: (data) => apiClient.post('/wrestlers', data),
   update: (id, data) => apiClient.put(`/wrestlers/${id}`, data),
   delete: (id) => apiClient.delete(`/wrestlers/${id}`),

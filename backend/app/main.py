@@ -1,8 +1,5 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import wrestlers, schools, coaches, tournaments, brackets, search
-from app.models.models import Base
-from app.database.database import engine
 from app.config import settings
 import os
 
@@ -30,9 +27,13 @@ app.add_middleware(
 # Create tables on startup
 @app.on_event("startup")
 async def startup_event():
-    async with engine.begin() as conn:
-        # Create all tables
-        await conn.run_sync(Base.metadata.create_all)
+    if not (settings.use_duckdb or os.getenv("USE_DUCKDB", "false").lower() == "true"):
+        # Only create PostgreSQL tables if not using DuckDB
+        from app.models.models import Base
+        from app.database.database import engine
+        async with engine.begin() as conn:
+            # Create all tables
+            await conn.run_sync(Base.metadata.create_all)
 
 # Include routers based on database mode
 if settings.use_duckdb or os.getenv("USE_DUCKDB", "false").lower() == "true":
@@ -45,6 +46,7 @@ if settings.use_duckdb or os.getenv("USE_DUCKDB", "false").lower() == "true":
     except ImportError:
         print("DuckDB router could not be imported - DuckDB functionality disabled")
         # Fallback to regular routers
+        from app.routers import wrestlers, schools, coaches, tournaments, brackets, search
         app.include_router(wrestlers.router, prefix="/api/wrestlers", tags=["wrestlers"])
         app.include_router(schools.router, prefix="/api/schools", tags=["schools"])
         app.include_router(coaches.router, prefix="/api/coaches", tags=["coaches"])
@@ -53,6 +55,7 @@ if settings.use_duckdb or os.getenv("USE_DUCKDB", "false").lower() == "true":
         app.include_router(search.router, prefix="/api/search", tags=["search"])
 else:
     # PostgreSQL mode - use regular routers
+    from app.routers import wrestlers, schools, coaches, tournaments, brackets, search
     app.include_router(wrestlers.router, prefix="/api/wrestlers", tags=["wrestlers"])
     app.include_router(schools.router, prefix="/api/schools", tags=["schools"])
     app.include_router(coaches.router, prefix="/api/coaches", tags=["coaches"])

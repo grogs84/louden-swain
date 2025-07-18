@@ -27,6 +27,7 @@ import {
 } from '@mui/material';
 import { Search as SearchIcon, Person, School, EmojiEvents } from '@mui/icons-material';
 import { searchAPI } from '../services/api';
+import { formatFullName, formatSchoolName, toTitleCase } from '../utils/formatters';
 
 const SearchPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -108,6 +109,8 @@ const SearchPage = () => {
         );
       }
 
+      console.log(`Rendering ${type} results:`, results);
+
       // Convert type to singular form for routing
       const singularType = type === 'wrestlers' ? 'wrestler' : 
                           type === 'schools' ? 'school' : 
@@ -135,10 +138,19 @@ const SearchPage = () => {
                     {singularType === 'wrestler' && <Person fontSize="small" />}
                     {singularType === 'school' && <School fontSize="small" />}
                     {singularType === 'coach' && <EmojiEvents fontSize="small" />}
-                    {result.name || `${result.first_name} ${result.last_name}`}
+                    {singularType === 'wrestler' 
+                      ? result.name ? toTitleCase(result.name) : formatFullName(result.first_name || '', result.last_name || '')
+                      : singularType === 'school'
+                      ? formatSchoolName(result.name || '')
+                      : result.name ? toTitleCase(result.name) : formatFullName(result.first_name || '', result.last_name || '')
+                    }
                   </Box>
                 }
-                secondary={result.additional_info || result.school || result.conference}
+                secondary={
+                  singularType === 'wrestler' 
+                    ? formatSchoolName(result.school || result.school_name || result.additional_info || '')
+                    : result.additional_info || result.school || result.conference || ''
+                }
               />
               <Chip
                 label={singularType}

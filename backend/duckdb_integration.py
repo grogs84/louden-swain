@@ -287,6 +287,36 @@ class WrestlingDuckDB:
         
         return self.execute_query(query)
     
+    def get_wrestler_by_id(self, person_id: str) -> Dict[str, Any]:
+        """Get a specific wrestler by person_id"""
+        wrestlers = self.get_wrestlers(limit=10000)  # Get all wrestlers
+        
+        for wrestler in wrestlers:
+            if wrestler.get('person_id') == person_id:
+                return wrestler
+        
+        return {}
+    
+    def get_school_by_id(self, school_id: str) -> Dict[str, Any]:
+        """Get a specific school by school_id"""
+        schools = self.get_schools(limit=1000)  # Get all schools
+        
+        for school in schools:
+            if school.get('school_id') == school_id:
+                return school
+        
+        return {}
+    
+    def get_tournament_by_id(self, tournament_id: str) -> Dict[str, Any]:
+        """Get a specific tournament by tournament_id"""
+        tournaments = self.get_tournaments(limit=1000)  # Get all tournaments
+        
+        for tournament in tournaments:
+            if tournament.get('tournament_id') == tournament_id:
+                return tournament
+        
+        return {}
+
     def get_wrestler_stats(self, person_id: str) -> Dict[str, Any]:
         """Get detailed stats for a specific wrestler"""
         # Get basic info
@@ -351,6 +381,111 @@ class WrestlingDuckDB:
         result = self.execute_query(query)
         return [row['year'] for row in result]
 
+    def get_wrestler_matches(self, person_id: str) -> List[Dict[str, Any]]:
+        """Get all matches for a specific wrestler"""
+        query = """
+        with data_table as (
+          select
+            p.year,
+            p.weight_class,
+            m.round,
+            person.first_name as fname1,
+            person.last_name as lname1,
+            pm.is_winner,
+            pm.score as score1,
+            pm.result_type,
+            pm.fall_time,
+            per1.first_name as fname2,
+            per1.last_name as lname2,
+            pm1.score as score2,
+            s1.name as school1,
+            s2.name as school2,
+            t.name as tournament_name
+          from person
+          join role r 
+            on r.person_id = person.person_id
+          join participant p
+            on r.role_id = p.role_id
+          join participant_match pm
+            on pm.participant_id = p.participant_id
+          join match m
+            on pm.match_id = m.match_id
+          join participant_match pm1
+            on pm1.match_id = m.match_id
+            and pm1.participant_id <> p.participant_id
+          join participant p1
+            on p1.participant_id = pm1.participant_id
+          join role r1
+            on r1.role_id = p1.role_id
+          join person per1
+            on per1.person_id = r1.person_id
+          left join school s1
+            on s1.school_id = p.school_id
+          left join school s2
+            on s2.school_id = p1.school_id
+          left join tournament t
+            on t.tournament_id = m.tournament_id
+          where person.person_id = ?
+        )
+        
+        select
+          d.year as year,
+          d.weight_class as weight,
+          d.round as round,
+          d.fname1 || ' ' || d.lname1 as name,
+          d.is_winner as winner,
+          d.result_type as match_result,
+          case when d.result_type = 'fall' then d.fall_time else d.score1 || ' - ' || d.score2 end as score,
+          d.fname2 as opponent_first_name,
+          d.lname2 as opponent_last_name,
+          d.fname2 || ' ' || d.lname2 as opponent,
+          d.school2 as opponent_school,
+          d.tournament_name as tournament
+        from data_table d
+        order by d.year asc, 
+                 case 
+                   when d.round = 'champ 64' then 1
+                   when d.round = 'champ 32' then 2
+                   when d.round = 'champ 16' then 3
+                   when d.round = 'champ 8' then 4
+                   when d.round = 'champ 4' then 5
+                   when d.round = '1st' then 6
+                   when d.round = '2nd' then 7
+                   when d.round = 'consi 32 #2' then 8
+                   when d.round = 'consi 16 #1' then 9
+                   when d.round = 'consi 16 #2' then 10
+                   when d.round = 'consi 8 #1' then 11
+                   when d.round = 'consi 8 #2' then 12
+                   when d.round = 'consi 4 #1' then 13
+                   when d.round = 'consi 4 #2' then 14
+                   when d.round = '3rd' then 15
+                   when d.round = '5th' then 15
+                   when d.round = '7th' then 15
+                   when d.round in ('r1', 'r2', 'r3', 'r4', 'r5', 'r6', 'r7') then 16
+                   -- Fallback patterns for variations in naming
+                   when d.round like '%64%' then 1
+                   when d.round like '%32%' then 2
+                   when d.round like '%16%' then 3
+                   when d.round like '%quarter%' or d.round like '%8%' then 4
+                   when d.round like '%semi%' or d.round like '%4%' then 5
+                   when d.round like '%final%' and d.round not like '%semi%' then 6
+                   when d.round like '%1st%' or d.round like '%first%' then 6
+                   when d.round like '%2nd%' or d.round like '%second%' then 7
+                   when d.round like '%3rd%' or d.round like '%third%' then 15
+                   when d.round like '%consol%' then 10
+                   when d.round like '%pre%' or d.round like '%qualifier%' then 0
+                   else 99
+                 end
+        """
+        
+        result = self.conn.execute(query, [person_id]).fetchall()
+        
+        # Convert to list of dictionaries
+        if result:
+            columns = [desc[0] for desc in self.conn.description]
+            return [dict(zip(columns, row)) for row in result]
+        return []
+    
 def create_sample_api_data():
     """Create sample data in the format expected by our current API"""
     

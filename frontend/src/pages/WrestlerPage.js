@@ -20,6 +20,7 @@ import {
   Alert,
 } from '@mui/material';
 import { wrestlersAPI } from '../services/api';
+import { formatFullName, formatSchoolName, formatLocation } from '../utils/formatters';
 
 const WrestlerPage = () => {
   const { id } = useParams();
@@ -30,11 +31,26 @@ const WrestlerPage = () => {
     { enabled: !!id }
   );
 
-  const { data: stats } = useQuery(
-    ['wrestler-stats', id],
-    () => wrestlersAPI.getStats(id).then(res => res.data),
+  const { data: stats, isLoading: statsLoading, error: statsError } = useQuery(
+    ['wrestler-stats', id, 'v2'], // Added version to force cache refresh
+    () => wrestlersAPI.getStats(id).then(res => {
+      console.log('Stats API response:', res.data);
+      return res.data;
+    }),
+    { 
+      enabled: !!id,
+      staleTime: 0, // Don't cache
+      cacheTime: 0  // Don't cache
+    }
+  );
+
+  const { data: matches, isLoading: matchesLoading, error: matchesError } = useQuery(
+    ['wrestler-matches', id],
+    () => wrestlersAPI.getMatches(id, { limit: 10 }).then(res => res.data),
     { enabled: !!id }
   );
+
+  console.log('Stats data:', stats, 'Loading:', statsLoading, 'Error:', statsError);
 
   if (isLoading) {
     return (
@@ -56,42 +72,6 @@ const WrestlerPage = () => {
     return <Alert severity="info">Wrestler not found</Alert>;
   }
 
-  const mockMatches = [
-    {
-      id: 1,
-      opponent: 'John Smith',
-      opponentSchool: 'Oklahoma State',
-      result: 'W',
-      decision: 'Decision',
-      score: '7-2',
-      tournament: '2024 NCAA Championships',
-      round: 'Quarterfinals',
-      date: '2024-03-21',
-    },
-    {
-      id: 2,
-      opponent: 'Mike Johnson',
-      opponentSchool: 'Iowa',
-      result: 'W',
-      decision: 'Pin',
-      score: 'Fall 2:15',
-      tournament: '2024 NCAA Championships',
-      round: 'Round of 16',
-      date: '2024-03-20',
-    },
-    {
-      id: 3,
-      opponent: 'Dave Wilson',
-      opponentSchool: 'Penn State',
-      result: 'L',
-      decision: 'Decision',
-      score: '4-6',
-      tournament: '2024 Big Ten Championships',
-      round: 'Finals',
-      date: '2024-03-10',
-    },
-  ];
-
   return (
     <Container maxWidth="lg">
       {/* Header */}
@@ -99,16 +79,16 @@ const WrestlerPage = () => {
         <Grid container spacing={3} alignItems="center">
           <Grid item xs={12} md={8}>
             <Typography variant="h3" component="h1" gutterBottom>
-              {wrestler.first_name} {wrestler.last_name}
+              {formatFullName(wrestler.first_name, wrestler.last_name)}
             </Typography>
             <Typography variant="h5" color="text.secondary" gutterBottom>
-              {wrestler.school?.name}
+              {formatSchoolName(wrestler.school?.name)}
             </Typography>
             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 2 }}>
               {/* <Chip label={`${wrestler.weight_class} lbs`} color="primary" /> */}
               {/* <Chip label={wrestler.year || 'Senior'} variant="outlined" /> */}
               {wrestler.hometown && wrestler.state && (
-                <Chip label={`${wrestler.hometown}, ${wrestler.state}`} variant="outlined" />
+                <Chip label={formatLocation(`${wrestler.hometown}, ${wrestler.state}`)} variant="outlined" />
               )}
             </Box>
           </Grid>
@@ -188,6 +168,14 @@ const WrestlerPage = () => {
                     </Typography>
                   </Grid>
                 </Grid>
+              ) : statsLoading ? (
+                <Typography color="text.secondary">
+                  Loading statistics...
+                </Typography>
+              ) : statsError ? (
+                <Typography color="error">
+                  Error loading statistics: {statsError.message}
+                </Typography>
               ) : (
                 <Typography color="text.secondary">
                   Statistics not available
@@ -205,20 +193,14 @@ const WrestlerPage = () => {
                 Quick Facts
               </Typography>
               <Typography variant="body1" paragraph>
-                <strong>School:</strong> {wrestler.school?.name}
+                <strong>School:</strong> {formatSchoolName(wrestler.school?.name)}
               </Typography>
               <Typography variant="body1" paragraph>
                 <strong>Conference:</strong> {wrestler.school?.conference || 'N/A'}
               </Typography>
-              <Typography variant="body1" paragraph>
-                <strong>Weight Class:</strong> {wrestler.weight_class} lbs
-              </Typography>
-              <Typography variant="body1" paragraph>
-                <strong>Year:</strong> {wrestler.year || 'N/A'}
-              </Typography>
               {wrestler.hometown && wrestler.state && (
                 <Typography variant="body1" paragraph>
-                  <strong>Hometown:</strong> {wrestler.hometown}, {wrestler.state}
+                  <strong>Hometown:</strong> {formatLocation(`${wrestler.hometown}, ${wrestler.state}`)}
                 </Typography>
               )}
             </CardContent>
@@ -232,40 +214,52 @@ const WrestlerPage = () => {
               <Typography variant="h5" gutterBottom>
                 Recent Matches
               </Typography>
-              <TableContainer>
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Date</TableCell>
-                      <TableCell>Opponent</TableCell>
-                      <TableCell>School</TableCell>
-                      <TableCell>Result</TableCell>
-                      <TableCell>Score</TableCell>
-                      <TableCell>Tournament</TableCell>
-                      <TableCell>Round</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {mockMatches.map((match) => (
-                      <TableRow key={match.id}>
-                        <TableCell>{match.date}</TableCell>
-                        <TableCell>{match.opponent}</TableCell>
-                        <TableCell>{match.opponentSchool}</TableCell>
-                        <TableCell>
-                          <Chip
-                            label={match.result}
-                            color={match.result === 'W' ? 'success' : 'error'}
-                            size="small"
-                          />
-                        </TableCell>
-                        <TableCell>{match.score}</TableCell>
-                        <TableCell>{match.tournament}</TableCell>
-                        <TableCell>{match.round}</TableCell>
+              {matches && matches.length > 0 ? (
+                <TableContainer>
+                  <Table>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Year</TableCell>
+                        <TableCell>Weight</TableCell>
+                        <TableCell>Opponent</TableCell>
+                        <TableCell>Result</TableCell>
+                        <TableCell>Score</TableCell>
+                        <TableCell>Round</TableCell>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
+                    </TableHead>
+                    <TableBody>
+                      {matches.map((match) => (
+                        <TableRow key={match.id}>
+                          <TableCell>{match.year}</TableCell>
+                          <TableCell>{match.weight_class} lbs</TableCell>
+                          <TableCell>{formatFullName(match.opponent_first_name || '', match.opponent_last_name || match.opponent || '')}</TableCell>
+                          <TableCell>
+                            <Chip
+                              label={match.result}
+                              color={match.result === 'W' ? 'success' : 'error'}
+                              size="small"
+                            />
+                          </TableCell>
+                          <TableCell>{match.score}</TableCell>
+                          <TableCell>{match.round}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              ) : matchesLoading ? (
+                <Typography color="text.secondary">
+                  Loading matches...
+                </Typography>
+              ) : matchesError ? (
+                <Typography color="error">
+                  Error loading matches: {matchesError.message}
+                </Typography>
+              ) : (
+                <Typography color="text.secondary">
+                  No match history available
+                </Typography>
+              )}
             </CardContent>
           </Card>
         </Grid>

@@ -17,6 +17,7 @@ import {
   Alert,
 } from '@mui/material';
 import { tournamentsAPI, bracketsAPI } from '../services/api';
+import { formatFullName, formatSchoolName } from '../utils/formatters';
 
 const BracketsPage = () => {
   const { tournamentId } = useParams();
@@ -57,32 +58,32 @@ const BracketsPage = () => {
             id: 1,
             date: '2024-03-21',
             teams: [
-              { name: 'John Smith (Oklahoma State)', id: 1 },
-              { name: 'Mike Johnson (Iowa)', id: 2 }
+              { name: 'john smith (oklahoma state)', id: 1 },
+              { name: 'mike johnson (iowa)', id: 2 }
             ]
           },
           {
             id: 2,
             date: '2024-03-21',
             teams: [
-              { name: 'Dave Wilson (Penn State)', id: 3 },
-              { name: 'Tom Brown (Ohio State)', id: 4 }
+              { name: 'dave wilson (penn state)', id: 3 },
+              { name: 'tom brown (ohio state)', id: 4 }
             ]
           },
           {
             id: 3,
             date: '2024-03-21',
             teams: [
-              { name: 'Steve Davis (Iowa State)', id: 5 },
-              { name: 'Mark Taylor (Michigan)', id: 6 }
+              { name: 'steve davis (iowa state)', id: 5 },
+              { name: 'mark taylor (michigan)', id: 6 }
             ]
           },
           {
             id: 4,
             date: '2024-03-21',
             teams: [
-              { name: 'Chris Miller (Nebraska)', id: 7 },
-              { name: 'Jake Anderson (Wisconsin)', id: 8 }
+              { name: 'chris miller (nebraska)', id: 7 },
+              { name: 'jake anderson (wisconsin)', id: 8 }
             ]
           }
         ]
@@ -94,16 +95,16 @@ const BracketsPage = () => {
             id: 5,
             date: '2024-03-22',
             teams: [
-              { name: 'John Smith (Oklahoma State)', id: 1 },
-              { name: 'Dave Wilson (Penn State)', id: 3 }
+              { name: 'john smith (oklahoma state)', id: 1 },
+              { name: 'dave wilson (penn state)', id: 3 }
             ]
           },
           {
             id: 6,
             date: '2024-03-22',
             teams: [
-              { name: 'Steve Davis (Iowa State)', id: 5 },
-              { name: 'Chris Miller (Nebraska)', id: 7 }
+              { name: 'steve davis (iowa state)', id: 5 },
+              { name: 'chris miller (nebraska)', id: 7 }
             ]
           }
         ]
@@ -115,8 +116,8 @@ const BracketsPage = () => {
             id: 7,
             date: '2024-03-23',
             teams: [
-              { name: 'John Smith (Oklahoma State)', id: 1 },
-              { name: 'Steve Davis (Iowa State)', id: 5 }
+              { name: 'john smith (oklahoma state)', id: 1 },
+              { name: 'steve davis (iowa state)', id: 5 }
             ]
           }
         ]
@@ -128,7 +129,7 @@ const BracketsPage = () => {
             id: 8,
             date: '2024-03-24',
             teams: [
-              { name: 'John Smith (Oklahoma State)', id: 1 },
+              { name: 'john smith (oklahoma state)', id: 1 },
               { name: 'TBD', id: null }
             ]
           }

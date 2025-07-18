@@ -99,10 +99,23 @@ async def get_wrestler(
     wrestler_id: str,
     db = Depends(get_duckdb)
 ):
-    """Get specific wrestler by person_id"""
+    """Get specific wrestler by person_id or sequential ID"""
     try:
         with db:
-            wrestler_stats = db.get_wrestler_stats(wrestler_id)
+            # Check if wrestler_id is a sequential number or person_id (UUID)
+            person_id = wrestler_id
+            
+            # If it's a number, convert to person_id by getting from wrestlers list
+            if wrestler_id.isdigit():
+                wrestlers = db.get_wrestlers(limit=1000)
+                wrestler_index = int(wrestler_id) - 1  # Convert 1-based to 0-based
+                if 0 <= wrestler_index < len(wrestlers):
+                    wrestler = wrestlers[wrestler_index]
+                    person_id = wrestler.get('person_id')
+                else:
+                    raise HTTPException(status_code=404, detail="Wrestler not found")
+            
+            wrestler_stats = db.get_wrestler_stats(person_id)
             
             if not wrestler_stats:
                 raise HTTPException(status_code=404, detail="Wrestler not found")
@@ -378,30 +391,6 @@ async def get_database_stats(db = Depends(get_duckdb)):
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
 # Add compatibility endpoints for frontend
-@router.get("/wrestlers/{wrestler_id}/stats/")
-async def get_wrestler_stats(wrestler_id: str, db = Depends(get_duckdb)):
-    """Get wrestler statistics - compatibility endpoint"""
-    try:
-        with db:
-            # Get basic wrestler info
-            wrestler = db.get_wrestler_by_id(wrestler_id)
-            if not wrestler:
-                raise HTTPException(status_code=404, detail="Wrestler not found")
-            
-            # Calculate basic stats from available data (removed weight_class)
-            stats = {
-                "total_matches": wrestler.get("total_matches", 0),
-                "wins": wrestler.get("wins", 0), 
-                "losses": wrestler.get("losses", 0),
-                "win_percentage": wrestler.get("win_percentage", 0.0),
-                "years_active": 1,  # Placeholder
-                "tournaments": 1,   # Placeholder
-            }
-            
-            return stats
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
 @router.get("/schools/{school_id}/stats/")
 async def get_school_stats(school_id: str, db = Depends(get_duckdb)):
     """Get school statistics - compatibility endpoint"""
@@ -454,7 +443,32 @@ async def get_wrestlers_frontend_compatible(
     try:
         with db:
             wrestlers = db.get_wrestlers(limit=limit, name_filter=name)
-            return wrestlers
+            
+            # Apply additional filters
+            if weight_class:
+                wrestlers = [w for w in wrestlers if w.get('weight_class') == weight_class]
+            
+            if school:
+                wrestlers = [w for w in wrestlers 
+                           if school.lower() in (w.get('school_name', '') or '').lower()]
+            
+            # Convert to API format with sequential IDs
+            api_wrestlers = []
+            for i, wrestler in enumerate(wrestlers):
+                api_wrestler = {
+                    "id": i + 1,
+                    "first_name": (wrestler.get('first_name') or '').title(),
+                    "last_name": (wrestler.get('last_name') or '').title(),
+                    "school_id": 1,  # Simplified for API compatibility
+                    "school_name": (wrestler.get('school_name') or '').title(),
+                    "wins": 15,  # Placeholder - would need to calculate from matches
+                    "losses": 3,  # Placeholder
+                    "person_id": wrestler.get('person_id'),
+                    "seed": wrestler.get('seed')
+                }
+                api_wrestlers.append(api_wrestler)
+            
+            return api_wrestlers
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
@@ -481,37 +495,37 @@ async def get_wrestler_stats_frontend_compatible(
     """Get wrestler statistics (frontend compatible)"""
     try:
         with db:
-            # Get wrestler basic info
-            wrestler = db.get_wrestler_by_id(wrestler_id)
-            if not wrestler:
-                raise HTTPException(status_code=404, detail="Wrestler not found")
+            # Check if wrestler_id is a sequential number or person_id (UUID)
+            person_id = wrestler_id
             
-            # Get match statistics from participant_match table
-            stats_query = """
-            SELECT 
-                COUNT(*) as total_matches,
-                SUM(CASE WHEN is_winner = true THEN 1 ELSE 0 END) as wins,
-                SUM(CASE WHEN is_winner = false THEN 1 ELSE 0 END) as losses,
-                COUNT(DISTINCT result_type) as different_result_types,
-                array_agg(DISTINCT result_type) as result_types
-            FROM participant_match pm
-            JOIN participant p ON pm.participant_id = p.participant_id
-            JOIN role r ON p.role_id = r.role_id
-            WHERE r.person_id = ?
-            """
+            # If it's a number, convert to person_id by getting from wrestlers list
+            if wrestler_id.isdigit():
+                wrestlers = db.get_wrestlers(limit=1000)
+                wrestler_index = int(wrestler_id) - 1  # Convert 1-based to 0-based
+                if 0 <= wrestler_index < len(wrestlers):
+                    wrestler = wrestlers[wrestler_index]
+                    person_id = wrestler.get('person_id')
+                else:
+                    raise HTTPException(status_code=404, detail="Wrestler not found")
             
-            stats_result = db.execute_query(stats_query.replace('?', f"'{wrestler_id}'"))
-            stats = stats_result[0] if stats_result else {}
+            # Get wrestler stats directly using person_id (UUID or converted from sequential)
+            stats = db.get_wrestler_stats(person_id)
+            if not stats:
+                raise HTTPException(status_code=404, detail="Wrestler stats not found")
             
             return {
                 "wrestler_id": wrestler_id,
-                "name": f"{wrestler.get('first_name', '')} {wrestler.get('last_name', '')}".strip(),
+                "name": f"{stats.get('first_name', '')} {stats.get('last_name', '')}".strip(),
                 "total_matches": stats.get('total_matches', 0),
-                "wins": stats.get('wins', 0), 
+                "wins": stats.get('wins', 0),
                 "losses": stats.get('losses', 0),
-                "win_percentage": round((stats.get('wins', 0) / max(stats.get('total_matches', 1), 1)) * 100, 1),
-                "result_types": stats.get('result_types', [])
+                "pins": stats.get('falls', 0),  # Map falls to pins for frontend
+                "tech_falls": 0,  # Not tracked separately in our data
+                "major_decisions": stats.get('decisions', 0),  # Map decisions to major_decisions
+                "win_percentage": round((stats.get('wins', 0) / max(stats.get('total_matches', 1), 1)) * 100, 1)
             }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
@@ -637,3 +651,52 @@ async def search_all_frontend_compatible(
             }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Search error: {str(e)}")
+
+@router.get("/wrestlers/{wrestler_id}/matches", response_model=List[dict])
+async def get_wrestler_matches_frontend_compatible(
+    wrestler_id: str,
+    db = Depends(get_duckdb)
+):
+    """Get all matches for a wrestler (frontend compatible)"""
+    try:
+        with db:
+            # Check if wrestler_id is a sequential number or person_id (UUID)
+            person_id = wrestler_id
+            
+            # If it's a number, convert to person_id by getting from wrestlers list
+            if wrestler_id.isdigit():
+                wrestlers = db.get_wrestlers(limit=1000)
+                wrestler_index = int(wrestler_id) - 1  # Convert 1-based to 0-based
+                if 0 <= wrestler_index < len(wrestlers):
+                    wrestler = wrestlers[wrestler_index]
+                    person_id = wrestler.get('person_id')
+                else:
+                    raise HTTPException(status_code=404, detail="Wrestler not found")
+            
+            # Get all matches for this wrestler
+            matches = db.get_wrestler_matches(person_id)
+            
+            # Convert to frontend format
+            api_matches = []
+            for i, match in enumerate(matches):
+                api_match = {
+                    "id": i + 1,
+                    "opponent": match.get('opponent', 'Unknown'),
+                    "opponentSchool": match.get('opponent_school', 'Unknown School'),
+                    "result": "W" if match.get('winner') else "L",
+                    "decision": match.get('match_result', 'Decision').title(),
+                    "score": match.get('score', 'N/A'),
+                    "tournament": match.get('tournament', f"{match.get('year', 'Unknown')} Tournament"),
+                    "round": match.get('round', 'Unknown Round'),
+                    "date": f"{match.get('year', 'Unknown')}-03-01",  # Placeholder date
+                    "weight_class": match.get('weight', 'Unknown'),
+                    "year": match.get('year', 'Unknown')
+                }
+                api_matches.append(api_match)
+            
+            return api_matches
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
