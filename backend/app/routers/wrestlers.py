@@ -117,87 +117,58 @@ async def get_wrestler_stats(
     wrestler_id: Union[int, str],
     db: AsyncSession = Depends(get_db)
 ):
-    """Get wrestler statistics using participant_match table"""
+    """Get wrestler statistics matching DuckDB format for frontend compatibility"""
     try:
         # Get match statistics using the participant_match bridge table
         stats_query = text("""
             SELECT 
                 COUNT(*) as total_matches,
                 SUM(CASE WHEN pm.is_winner = true THEN 1 ELSE 0 END) as wins,
-                SUM(CASE WHEN pm.is_winner = false THEN 1 ELSE 0 END) as losses
+                SUM(CASE WHEN pm.is_winner = false THEN 1 ELSE 0 END) as losses,
+                SUM(CASE WHEN pm.result_type = 'fall' THEN 1 ELSE 0 END) as falls,
+                SUM(CASE WHEN pm.result_type = 'decision' THEN 1 ELSE 0 END) as decisions,
+                SUM(CASE WHEN pm.result_type = 'tech_fall' THEN 1 ELSE 0 END) as tech_falls
             FROM person p
             JOIN role r ON p.person_id = r.person_id
             JOIN participant pt ON r.role_id = pt.role_id
             JOIN participant_match pm ON pt.participant_id = pm.participant_id
-            WHERE p.person_id = :wrestler_id AND r.role_type = 'wrestler'
+            WHERE p.person_id::text = :wrestler_id AND r.role_type = 'wrestler'
         """)
         
-        result = await db.execute(stats_query, {"wrestler_id": wrestler_id})
+        result = await db.execute(stats_query, {"wrestler_id": str(wrestler_id)})
         stats = result.fetchone()
         
         if stats and stats.total_matches > 0:
-            total_matches = stats.total_matches
+            total_matches = stats.total_matches or 0
             wins = stats.wins or 0
             losses = stats.losses or 0
+            falls = stats.falls or 0
+            decisions = stats.decisions or 0
+            tech_falls = stats.tech_falls or 0
             win_percentage = round((wins / total_matches * 100), 1) if total_matches > 0 else 0
         else:
-            total_matches = wins = losses = win_percentage = 0
+            total_matches = wins = losses = falls = decisions = tech_falls = win_percentage = 0
         
+        # Return format matching DuckDB version for frontend compatibility
         return {
             "total_matches": total_matches,
             "wins": wins,
             "losses": losses,
+            "pins": falls,  # Map falls to pins for frontend
+            "tech_falls": tech_falls,
+            "major_decisions": decisions,  # Map decisions to major_decisions
             "win_percentage": win_percentage
         }
-    except Exception as e:
-        return {
-            "total_matches": 0,
-            "wins": 0,
-            "losses": 0,
-            "win_percentage": 0,
-            "error": str(e)
-        }
-        wrestler = result.fetchone()
-        
-        if not wrestler:
-            return {
-                "total_matches": 0,
-                "wins": 0,
-                "losses": 0,
-                "win_percentage": 0
-            }
-        
-        # Check if this person has wrestler roles
-        role_query = text("""
-            SELECT COUNT(*) as role_count
-            FROM role r
-            WHERE r.person_id = :wrestler_id AND r.role_type = 'wrestler'
-        """)
-        
-        result = await db.execute(role_query, {"wrestler_id": wrestler_id})
-        role_count = result.scalar() or 0
-        
-        # For now, return basic stats (match data needs proper schema mapping)
-        return {
-            "total_matches": 0,
-            "wins": 0,
-            "losses": 0,
-            "win_percentage": 0,
-            "wrestler_roles": role_count
-        }
         
     except Exception as e:
+        # Return same format as DuckDB version with zeros
         return {
             "total_matches": 0,
             "wins": 0,
             "losses": 0,
-            "win_percentage": 0,
-            "error": str(e)
-        }
-        return {
-            "total_matches": 0,
-            "wins": 0,
-            "losses": 0,
+            "pins": 0,
+            "tech_falls": 0,
+            "major_decisions": 0,
             "win_percentage": 0
         }
 
