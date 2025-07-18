@@ -439,3 +439,69 @@ async def debug_schema():
             "error": str(e),
             "status": "failed"
         }
+
+@app.get("/debug/participant-matches")
+async def debug_participant_matches():
+    """Check if there's data in the participant_match table"""
+    try:
+        from app.database.database import get_db
+        db = None
+        async for session in get_db():
+            db = session
+            break
+        
+        if not db:
+            return {"error": "Could not get database session"}
+        
+        from sqlalchemy import text
+        
+        # Check total count in participant_match
+        count_result = await db.execute(text("SELECT COUNT(*) FROM participant_match"))
+        total_count = count_result.scalar()
+        
+        # Get a few sample participant_match records
+        sample_result = await db.execute(text("""
+            SELECT match_id, participant_id, is_winner, score, result_type, fall_time
+            FROM participant_match 
+            LIMIT 5
+        """))
+        sample_matches = sample_result.fetchall()
+        
+        # Check if Spencer Lee has any participant_match records
+        spencer_result = await db.execute(text("""
+            SELECT pm.match_id, pm.participant_id, pm.is_winner, pm.score, pm.result_type
+            FROM participant_match pm
+            JOIN participant p ON pm.participant_id = p.participant_id  
+            JOIN role r ON p.role_id = r.role_id
+            WHERE r.person_id = :spencer_id
+            LIMIT 5
+        """), {"spencer_id": "5ccf054b-6630-494e-beff-e9c4b8e3bb6a"})
+        spencer_matches = spencer_result.fetchall()
+        
+        return {
+            "total_participant_matches": total_count,
+            "sample_matches": [
+                {
+                    "match_id": m.match_id,
+                    "participant_id": m.participant_id,
+                    "is_winner": m.is_winner,
+                    "score": m.score,
+                    "result_type": m.result_type,
+                    "fall_time": m.fall_time
+                }
+                for m in sample_matches
+            ],
+            "spencer_matches": [
+                {
+                    "match_id": m.match_id,
+                    "participant_id": m.participant_id,
+                    "is_winner": m.is_winner,
+                    "score": m.score,
+                    "result_type": m.result_type
+                }
+                for m in spencer_matches
+            ],
+            "spencer_match_count": len(spencer_matches)
+        }
+    except Exception as e:
+        return {"error": str(e)}
