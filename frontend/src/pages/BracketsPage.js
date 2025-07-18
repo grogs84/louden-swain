@@ -17,7 +17,6 @@ import {
   Alert,
 } from '@mui/material';
 import { tournamentsAPI, bracketsAPI } from '../services/api';
-import { formatFullName, formatSchoolName } from '../utils/formatters';
 
 const BracketsPage = () => {
   const { tournamentId } = useParams();

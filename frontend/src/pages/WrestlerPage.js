@@ -34,7 +34,7 @@ const WrestlerPage = () => {
   const { data: stats, isLoading: statsLoading, error: statsError } = useQuery(
     ['wrestler-stats', id, 'v2'], // Added version to force cache refresh
     () => wrestlersAPI.getStats(id).then(res => {
-      console.log('Stats API response:', res.data);
+      // console.log('Stats API response:', res.data);
       return res.data;
     }),
     { 
@@ -50,7 +50,7 @@ const WrestlerPage = () => {
     { enabled: !!id }
   );
 
-  console.log('Stats data:', stats, 'Loading:', statsLoading, 'Error:', statsError);
+  // console.log('Stats data:', stats, 'Loading:', statsLoading, 'Error:', statsError);
 
   if (isLoading) {
     return (

@@ -109,7 +109,7 @@ const SearchPage = () => {
         );
       }
 
-      console.log(`Rendering ${type} results:`, results);
+      // console.log(`Rendering ${type} results:`, results);
 
       // Convert type to singular form for routing
       const singularType = type === 'wrestlers' ? 'wrestler' : 
