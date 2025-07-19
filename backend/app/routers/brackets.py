@@ -180,42 +180,68 @@ async def get_bracket_data_by_tournament_weight(
     weight_class: int
 ):
     """Get bracket data formatted for bracket visualization by tournament and weight class"""
-    # Return mock bracket data for demonstration since we don't have a working database
+    
+    # Generate different mock data based on weight class for variety
+    wrestlers = {
+        125: [
+            ("Spencer Lee", "Iowa", True), ("Nick Suriano", "Rutgers", False),
+            ("Matt Ramos", "Purdue", True), ("Pat Glory", "Princeton", False),
+            ("Brandon Courtney", "Arizona State", True), ("Malik Heinselman", "Ohio State", False),
+            ("Liam Cronin", "Iowa State", True), ("Travis Piotrowski", "NC State", False)
+        ],
+        133: [
+            ("Roman Bravo-Young", "Penn State", True), ("Daton Fix", "Oklahoma State", False),
+            ("Austin DeSanto", "Iowa", True), ("Sammy Alvarez", "Rutgers", False),
+            ("Lucas Byrd", "Illinois", True), ("Chris Cannon", "Northwestern", False),
+            ("Beau Bartlett", "Penn State", True), ("Dylan Shawver", "Rutgers", False)
+        ],
+        141: [
+            ("Nick Lee", "Penn State", True), ("Jaydin Eierman", "Iowa", False),
+            ("Chad Red", "Nebraska", True), ("Real Woods", "Stanford", False),
+            ("Parker Filius", "Purdue", True), ("Brock Mauller", "Missouri", False),
+            ("Kizhan Clarke", "Arizona State", True), ("Tariq Wilson", "NC State", False)
+        ]
+    }
+    
+    # Get wrestlers for this weight class or default
+    weight_wrestlers = wrestlers.get(weight_class, wrestlers[125])
+    
+    # Return mock bracket data for demonstration
     return {
         "rounds": [
             {
-                "title": "First Round",
+                "title": "Quarterfinals",
                 "seeds": [
                     {
                         "id": 1,
                         "date": "2024-03-21",
                         "teams": [
-                            {"name": "John Smith (Oklahoma State)", "id": 1, "isWinner": True},
-                            {"name": "Mike Johnson (Iowa)", "id": 2, "isWinner": False}
+                            {"name": f"{weight_wrestlers[0][0]} ({weight_wrestlers[0][1]})", "id": 1, "isWinner": weight_wrestlers[0][2]},
+                            {"name": f"{weight_wrestlers[1][0]} ({weight_wrestlers[1][1]})", "id": 2, "isWinner": weight_wrestlers[1][2]}
                         ]
                     },
                     {
                         "id": 2,
                         "date": "2024-03-21",
                         "teams": [
-                            {"name": "Dave Wilson (Penn State)", "id": 3, "isWinner": True},
-                            {"name": "Tom Brown (Ohio State)", "id": 4, "isWinner": False}
+                            {"name": f"{weight_wrestlers[2][0]} ({weight_wrestlers[2][1]})", "id": 3, "isWinner": weight_wrestlers[2][2]},
+                            {"name": f"{weight_wrestlers[3][0]} ({weight_wrestlers[3][1]})", "id": 4, "isWinner": weight_wrestlers[3][2]}
                         ]
                     },
                     {
                         "id": 3,
                         "date": "2024-03-21",
                         "teams": [
-                            {"name": "Steve Davis (Iowa State)", "id": 5, "isWinner": True},
-                            {"name": "Mark Taylor (Michigan)", "id": 6, "isWinner": False}
+                            {"name": f"{weight_wrestlers[4][0]} ({weight_wrestlers[4][1]})", "id": 5, "isWinner": weight_wrestlers[4][2]},
+                            {"name": f"{weight_wrestlers[5][0]} ({weight_wrestlers[5][1]})", "id": 6, "isWinner": weight_wrestlers[5][2]}
                         ]
                     },
                     {
                         "id": 4,
                         "date": "2024-03-21",
                         "teams": [
-                            {"name": "Chris Miller (Nebraska)", "id": 7, "isWinner": True},
-                            {"name": "Jake Anderson (Wisconsin)", "id": 8, "isWinner": False}
+                            {"name": f"{weight_wrestlers[6][0]} ({weight_wrestlers[6][1]})", "id": 7, "isWinner": weight_wrestlers[6][2]},
+                            {"name": f"{weight_wrestlers[7][0]} ({weight_wrestlers[7][1]})", "id": 8, "isWinner": weight_wrestlers[7][2]}
                         ]
                     }
                 ]
@@ -227,16 +253,16 @@ async def get_bracket_data_by_tournament_weight(
                         "id": 5,
                         "date": "2024-03-22",
                         "teams": [
-                            {"name": "John Smith (Oklahoma State)", "id": 1, "isWinner": True},
-                            {"name": "Dave Wilson (Penn State)", "id": 3, "isWinner": False}
+                            {"name": f"{weight_wrestlers[0][0]} ({weight_wrestlers[0][1]})", "id": 1, "isWinner": True},
+                            {"name": f"{weight_wrestlers[2][0]} ({weight_wrestlers[2][1]})", "id": 3, "isWinner": False}
                         ]
                     },
                     {
                         "id": 6,
                         "date": "2024-03-22",
                         "teams": [
-                            {"name": "Steve Davis (Iowa State)", "id": 5, "isWinner": True},
-                            {"name": "Chris Miller (Nebraska)", "id": 7, "isWinner": False}
+                            {"name": f"{weight_wrestlers[4][0]} ({weight_wrestlers[4][1]})", "id": 5, "isWinner": True},
+                            {"name": f"{weight_wrestlers[6][0]} ({weight_wrestlers[6][1]})", "id": 7, "isWinner": False}
                         ]
                     }
                 ]
@@ -248,8 +274,8 @@ async def get_bracket_data_by_tournament_weight(
                         "id": 7,
                         "date": "2024-03-23",
                         "teams": [
-                            {"name": "John Smith (Oklahoma State)", "id": 1, "isWinner": True},
-                            {"name": "Steve Davis (Iowa State)", "id": 5, "isWinner": False}
+                            {"name": f"{weight_wrestlers[0][0]} ({weight_wrestlers[0][1]})", "id": 1, "isWinner": True},
+                            {"name": f"{weight_wrestlers[4][0]} ({weight_wrestlers[4][1]})", "id": 5, "isWinner": False}
                         ]
                     }
                 ]
