@@ -1,312 +1,178 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import text
-from typing import List, Optional, Union, Dict, Any
-from app.database.database import get_db
+"""
+Wrestlers API endpoints
+"""
+from fastapi import APIRouter, HTTPException, Depends, Query
+from typing import List, Optional
+from uuid import UUID
+from ..database import get_db, Database
+from ..models import WrestlerProfile, WrestlerStats, WrestlerMatch
 
 router = APIRouter()
 
-def title_case_name(name: str) -> str:
-    """Apply title case formatting to names (updated for Supabase - simplified)"""
-    if not name:
-        return name
-    
-    # Simple title case for now
-    return ' '.join(word.capitalize() for word in name.split())
-
-@router.get("/", response_model=List[Dict[str, Any]])
+@router.get("/wrestlers", response_model=List[WrestlerProfile])
 async def get_wrestlers(
-    skip: int = 0,
-    limit: int = 100,
-    db: AsyncSession = Depends(get_db)
+    limit: int = Query(20, le=100, description="Maximum number of results"),
+    offset: int = Query(0, ge=0, description="Number of results to skip"),
+    name: Optional[str] = Query(None, description="Filter by wrestler name"),
+    school: Optional[str] = Query(None, description="Filter by school name"),
+    weight_class: Optional[str] = Query(None, description="Filter by weight class"),
+    db: Database = Depends(get_db)
 ):
-    """Get all wrestlers with complete info"""
+    """Get wrestlers with optional filtering"""
+    query = """
+    SELECT DISTINCT 
+        p.id,
+        p.first_name,
+        p.last_name,
+        s.name as school_name,
+        s.location as school_location
+    FROM people p
+    LEFT JOIN participants pt ON p.id = pt.person_id
+    LEFT JOIN schools s ON pt.school_id = s.id
+    WHERE 1=1
+    """
+    params = []
     
-    # Enhanced query to get complete wrestler data including weight_class, year, and school
-    query = text("""
-        SELECT DISTINCT
-            p.person_id,
-            p.first_name,
-            p.last_name,
-            pt.weight_class,
-            pt.year,
-            s.name as school_name
-        FROM person p
-        JOIN role r ON p.person_id = r.person_id
-        JOIN participant pt ON r.role_id = pt.role_id
-        LEFT JOIN school s ON pt.school_id = s.school_id
-        WHERE r.role_type = 'wrestler'
-        ORDER BY p.last_name, p.first_name
-        OFFSET :offset LIMIT :limit
-    """)
+    if name:
+        query += " AND (p.first_name ILIKE $" + str(len(params) + 1) + " OR p.last_name ILIKE $" + str(len(params) + 1) + ")"
+        params.append(f"%{name}%")
     
-    result = await db.execute(query, {"offset": skip, "limit": limit})
-    wrestlers = result.fetchall()
+    if school:
+        query += " AND s.name ILIKE $" + str(len(params) + 1)
+        params.append(f"%{school}%")
     
-    return [
-        {
-            "id": wrestler.person_id,
-            "person_id": wrestler.person_id,
-            "first_name": title_case_name(wrestler.first_name),
-            "last_name": title_case_name(wrestler.last_name),
-            "weight_class": wrestler.weight_class,
-            "year": wrestler.year,
-            "school": {
-                "name": title_case_name(wrestler.school_name) if wrestler.school_name else None
-            } if wrestler.school_name else None
-        }
-        for wrestler in wrestlers
-    ]
+    if weight_class:
+        query += " AND pt.weight_class = $" + str(len(params) + 1)
+        params.append(weight_class)
+    
+    query += f" ORDER BY p.last_name, p.first_name LIMIT ${len(params) + 1} OFFSET ${len(params) + 2}"
+    params.extend([limit, offset])
+    
+    rows = await db.fetch_all(query, *params)
+    return rows
 
-@router.get("/{wrestler_id}", response_model=Dict[str, Any])
+@router.get("/wrestlers/{wrestler_id}", response_model=WrestlerProfile)
 async def get_wrestler(
-    wrestler_id: Union[int, str],
-    db: AsyncSession = Depends(get_db)
+    wrestler_id: UUID,
+    db: Database = Depends(get_db)
 ):
-    """Get a specific wrestler by ID with basic info only"""
+    """Get wrestler by ID"""
+    query = """
+    SELECT 
+        p.id,
+        p.first_name,
+        p.last_name,
+        s.name as school_name,
+        s.location as school_location
+    FROM people p
+    LEFT JOIN participants pt ON p.id = pt.person_id
+    LEFT JOIN schools s ON pt.school_id = s.id
+    WHERE p.id = $1
+    LIMIT 1
+    """
     
-    try:
-        # Enhanced query to get complete wrestler info including weight_class, year, and school
-        query = text("""
-            SELECT DISTINCT
-                p.person_id::text as person_id,
-                p.first_name,
-                p.last_name,
-                pt.weight_class,
-                pt.year,
-                s.name as school_name
-            FROM person p
-            JOIN role r ON p.person_id = r.person_id
-            JOIN participant pt ON r.role_id = pt.role_id
-            LEFT JOIN school s ON pt.school_id = s.school_id
-            WHERE r.role_type = 'wrestler' AND p.person_id::text = :wrestler_id
-            LIMIT 1
-        """)
-        
-        result = await db.execute(query, {"wrestler_id": str(wrestler_id)})
-        wrestler = result.fetchone()
-        
-        if not wrestler:
-            raise HTTPException(status_code=404, detail="Wrestler not found")
-        
-        # Get actual statistics instead of hardcoded zeros
-        stats_query = text("""
-            SELECT 
-                COUNT(*) as total_matches,
-                SUM(CASE WHEN pm.is_winner = true THEN 1 ELSE 0 END) as wins,
-                SUM(CASE WHEN pm.is_winner = false THEN 1 ELSE 0 END) as losses
-            FROM person p
-            JOIN role r ON p.person_id = r.person_id
-            JOIN participant pt ON r.role_id = pt.role_id
-            JOIN participant_match pm ON pt.participant_id = pm.participant_id
-            WHERE p.person_id::text = :wrestler_id AND r.role_type = 'wrestler'
-        """)
-        
-        stats_result = await db.execute(stats_query, {"wrestler_id": str(wrestler_id)})
-        stats = stats_result.fetchone()
-        
-        total_matches = stats.total_matches if stats else 0
-        wins = stats.wins if stats else 0
-        losses = stats.losses if stats else 0
-        win_percentage = round((wins / total_matches * 100), 1) if total_matches > 0 else 0
-        
-        return {
-            "id": wrestler.person_id,
-            "person_id": wrestler.person_id,
-            "first_name": title_case_name(wrestler.first_name),
-            "last_name": title_case_name(wrestler.last_name),
-            "weight_class": wrestler.weight_class,
-            "year": wrestler.year,
-            "school": {
-                "name": title_case_name(wrestler.school_name) if wrestler.school_name else None
-            } if wrestler.school_name else None,
-            "stats": {
-                "total_matches": total_matches,
-                "wins": wins,
-                "losses": losses,
-                "win_percentage": win_percentage
-            },
-            "matches": []
-        }
-    except Exception as e:
-        # Return minimal data if query fails, but still try to get basic info
-        try:
-            basic_query = text("""
-                SELECT 
-                    p.person_id::text as person_id,
-                    p.first_name,
-                    p.last_name
-                FROM person p
-                JOIN role r ON p.person_id = r.person_id
-                WHERE r.role_type = 'wrestler' AND p.person_id::text = :wrestler_id
-                LIMIT 1
-            """)
-            
-            basic_result = await db.execute(basic_query, {"wrestler_id": str(wrestler_id)})
-            basic_wrestler = basic_result.fetchone()
-            
-            if basic_wrestler:
-                return {
-                    "id": basic_wrestler.person_id,
-                    "person_id": basic_wrestler.person_id,
-                    "first_name": title_case_name(basic_wrestler.first_name),
-                    "last_name": title_case_name(basic_wrestler.last_name),
-                    "weight_class": None,
-                    "year": None,
-                    "school": None,
-                    "stats": {
-                        "total_matches": 0,
-                        "wins": 0,
-                        "losses": 0,
-                        "win_percentage": 0
-                    },
-                    "matches": []
-                }
-        except:
-            pass
-            
-        # Final fallback
-        return {
-            "id": wrestler_id,
-            "person_id": wrestler_id,
-            "first_name": "Unknown",
-            "last_name": "Wrestler",
-            "weight_class": None,
-            "year": None,
-            "school": None,
-            "stats": {
-                "total_matches": 0,
-                "wins": 0,
-                "losses": 0,
-                "win_percentage": 0
-            },
-            "matches": []
-        }
+    wrestler = await db.fetch_one(query, wrestler_id)
+    if not wrestler:
+        raise HTTPException(status_code=404, detail="Wrestler not found")
+    
+    return wrestler
 
-@router.get("/{wrestler_id}/stats", response_model=Dict[str, Any])
+@router.get("/wrestlers/{wrestler_id}/stats", response_model=WrestlerStats)
 async def get_wrestler_stats(
-    wrestler_id: Union[int, str],
-    db: AsyncSession = Depends(get_db)
+    wrestler_id: UUID,
+    db: Database = Depends(get_db)
 ):
-    """Get wrestler statistics - match count, wins, wins by fall/technical fall"""
-    try:
-        # Get focused statistics as requested: match count, wins, wins by fall/technical fall
-        stats_query = text("""
-            SELECT 
-                COUNT(*) as match_count,
-                SUM(CASE WHEN pm.is_winner = true THEN 1 ELSE 0 END) as wins,
-                SUM(CASE WHEN pm.is_winner = true AND pm.result_type = 'fall' THEN 1 ELSE 0 END) as wins_by_fall,
-                SUM(CASE WHEN pm.is_winner = true AND (pm.result_type = 'tech fall' OR pm.result_type = 'tech_fall') THEN 1 ELSE 0 END) as wins_by_tech_fall
-            FROM person p
-            JOIN role r ON p.person_id = r.person_id
-            JOIN participant pt ON r.role_id = pt.role_id
-            JOIN participant_match pm ON pt.participant_id = pm.participant_id
-            WHERE p.person_id::text = :wrestler_id AND r.role_type = 'wrestler'
-        """)
-        
-        result = await db.execute(stats_query, {"wrestler_id": str(wrestler_id)})
-        stats = result.fetchone()
-        
-        if stats and stats.match_count > 0:
-            match_count = stats.match_count or 0
-            wins = stats.wins or 0
-            wins_by_fall = stats.wins_by_fall or 0
-            wins_by_tech_fall = stats.wins_by_tech_fall or 0
-        else:
-            match_count = wins = wins_by_fall = wins_by_tech_fall = 0
-        
-        # Return focused stats as requested
-        return {
-            "match_count": match_count,
-            "wins": wins,
-            "wins_by_fall": wins_by_fall,
-            "wins_by_tech_fall": wins_by_tech_fall
-        }
-        
-    except Exception as e:
-        # Return zeros on error
-        return {
-            "match_count": 0,
-            "wins": 0,
-            "wins_by_fall": 0,
-            "wins_by_tech_fall": 0
-        }
-
-@router.get("/{wrestler_id}/matches", response_model=List[Dict[str, Any]])
-async def get_wrestler_matches(
-    wrestler_id: Union[int, str],
-    limit: int = 100,
-    skip: int = 0,
-    db: AsyncSession = Depends(get_db)
-):
-    """Get wrestler's complete match results sorted by year and round ascending"""
+    """Get wrestler statistics"""
+    query = """
+    WITH wrestler_matches AS (
+        SELECT 
+            CASE 
+                WHEN m.winner_id = pt.id THEN 'W'
+                WHEN m.loser_id = pt.id THEN 'L'
+            END as result,
+            m.match_result
+        FROM participants pt
+        LEFT JOIN matches m ON (pt.id = m.winner_id OR pt.id = m.loser_id)
+        WHERE pt.person_id = $1 AND m.id IS NOT NULL
+    )
+    SELECT 
+        COUNT(*) as total_matches,
+        COUNT(CASE WHEN result = 'W' THEN 1 END) as wins,
+        COUNT(CASE WHEN result = 'L' THEN 1 END) as losses,
+        COUNT(CASE WHEN result = 'W' AND match_result = 'Fall' THEN 1 END) as pins,
+        COUNT(CASE WHEN result = 'W' AND match_result = 'Tech Fall' THEN 1 END) as tech_falls,
+        COUNT(CASE WHEN result = 'W' AND match_result = 'Major Decision' THEN 1 END) as major_decisions
+    FROM wrestler_matches
+    """
     
-    try:
-        # Get complete match results with both wrestler and opponent details
-        matches_query = text("""
-            SELECT DISTINCT
-                m.match_id,
-                t.year,
-                pt.weight_class as weight,
-                m.round,
-                m.round_order,
-                -- Wrestler info
-                p.first_name as wrestler_first_name,
-                p.last_name as wrestler_last_name,
-                pm.score as wrestler_score,
-                pm.is_winner,
-                pm.result_type,
-                -- Opponent info
-                p_opp.first_name as opponent_first_name,
-                p_opp.last_name as opponent_last_name,
-                pm_opp.score as opponent_score,
-                -- Winner determination
-                CASE 
-                    WHEN pm.is_winner = true THEN CONCAT(p.first_name, ' ', p.last_name)
-                    WHEN pm_opp.is_winner = true THEN CONCAT(p_opp.first_name, ' ', p_opp.last_name)
-                    ELSE 'Unknown'
-                END as winner
-            FROM person p
-            JOIN role r ON p.person_id = r.person_id
-            JOIN participant pt ON r.role_id = pt.role_id
-            JOIN participant_match pm ON pt.participant_id = pm.participant_id
-            JOIN match m ON pm.match_id = m.match_id
-            JOIN tournament t ON m.tournament_id = t.tournament_id
-            -- Get opponent participant in same match
-            JOIN participant_match pm_opp ON m.match_id = pm_opp.match_id AND pm_opp.participant_id != pm.participant_id
-            JOIN participant pt_opp ON pm_opp.participant_id = pt_opp.participant_id
-            JOIN role r_opp ON pt_opp.role_id = r_opp.role_id
-            JOIN person p_opp ON r_opp.person_id = p_opp.person_id
-            WHERE p.person_id::text = :wrestler_id AND r.role_type = 'wrestler'
-            ORDER BY t.year ASC, m.round_order ASC
-            OFFSET :skip LIMIT :limit
-        """)
-        
-        result = await db.execute(matches_query, {
-            "wrestler_id": str(wrestler_id), 
-            "skip": skip, 
-            "limit": limit
-        })
-        matches = result.fetchall()
-        
-        # Format matches for response as requested
-        formatted_matches = []
-        for match in matches:
-            formatted_match = {
-                "year": match.year,
-                "weight": match.weight,
-                "round": match.round,
-                "wrestler_name": f"{title_case_name(match.wrestler_first_name or '')} {title_case_name(match.wrestler_last_name or '')}".strip(),
-                "wrestler_score": match.wrestler_score or 0,
-                "opponent_name": f"{title_case_name(match.opponent_first_name or '')} {title_case_name(match.opponent_last_name or '')}".strip(),
-                "opponent_score": match.opponent_score or 0,
-                "result_type": match.result_type or "decision",
-                "winner": title_case_name(match.winner or "Unknown")
-            }
-            formatted_matches.append(formatted_match)
-        
-        return formatted_matches
-        
-    except Exception as e:
-        # Return empty matches if query fails
-        return []
+    stats = await db.fetch_one(query, wrestler_id)
+    if not stats:
+        stats = {
+            "total_matches": 0, "wins": 0, "losses": 0,
+            "pins": 0, "tech_falls": 0, "major_decisions": 0
+        }
+    
+    # Calculate win percentage
+    total = stats["total_matches"] or 0
+    wins = stats["wins"] or 0
+    win_percentage = (wins / total * 100) if total > 0 else 0.0
+    
+    return {
+        "wrestler_id": wrestler_id,
+        "total_matches": total,
+        "wins": wins,
+        "losses": stats["losses"] or 0,
+        "pins": stats["pins"] or 0,
+        "tech_falls": stats["tech_falls"] or 0,
+        "major_decisions": stats["major_decisions"] or 0,
+        "win_percentage": round(win_percentage, 1)
+    }
+
+@router.get("/wrestlers/{wrestler_id}/matches", response_model=List[WrestlerMatch])
+async def get_wrestler_matches(
+    wrestler_id: UUID,
+    limit: int = Query(100, le=500, description="Maximum number of matches"),
+    db: Database = Depends(get_db)
+):
+    """Get wrestler's match history"""
+    query = """
+    SELECT 
+        m.id,
+        CASE 
+            WHEN m.winner_id = pt.id THEN op_p.first_name
+            ELSE winner_p.first_name
+        END as opponent_first_name,
+        CASE 
+            WHEN m.winner_id = pt.id THEN op_p.last_name
+            ELSE winner_p.last_name
+        END as opponent_last_name,
+        CASE 
+            WHEN m.winner_id = pt.id THEN op_s.name
+            ELSE winner_s.name
+        END as opponent_school,
+        CASE 
+            WHEN m.winner_id = pt.id THEN 'W'
+            ELSE 'L'
+        END as result,
+        m.match_result as decision,
+        m.score,
+        t.name as tournament_name,
+        m.round,
+        t.year,
+        m.weight_class
+    FROM participants pt
+    JOIN matches m ON (pt.id = m.winner_id OR pt.id = m.loser_id)
+    JOIN tournaments t ON m.tournament_id = t.id
+    LEFT JOIN participants winner_pt ON m.winner_id = winner_pt.id
+    LEFT JOIN participants loser_pt ON m.loser_id = loser_pt.id
+    LEFT JOIN people winner_p ON winner_pt.person_id = winner_p.id
+    LEFT JOIN people op_p ON loser_pt.person_id = op_p.id
+    LEFT JOIN schools winner_s ON winner_pt.school_id = winner_s.id
+    LEFT JOIN schools op_s ON loser_pt.school_id = op_s.id
+    WHERE pt.person_id = $1
+    ORDER BY t.year ASC, m.round
+    LIMIT $2
+    """
+    
+    matches = await db.fetch_all(query, wrestler_id, limit)
+    return matches

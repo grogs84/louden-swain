@@ -1,143 +1,100 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
-from sqlalchemy.orm import selectinload
+"""
+Tournaments API endpoints
+"""
+from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import List, Optional
-from app.database.database import get_db
-from app.models.models import Tournament as TournamentModel
-from app.models.schemas import Tournament, TournamentCreate, TournamentUpdate
+from uuid import UUID
+from ..database import get_db, Database
+from ..models import Tournament
 
 router = APIRouter()
 
-@router.get("/", response_model=List[Tournament])
+@router.get("/tournaments", response_model=List[Tournament])
 async def get_tournaments(
-    skip: int = 0,
-    limit: int = 100,
-    year: Optional[int] = None,
-    division: Optional[str] = None,
-    db: AsyncSession = Depends(get_db)
+    limit: int = Query(20, le=100, description="Maximum number of results"),
+    offset: int = Query(0, ge=0, description="Number of results to skip"),
+    year: Optional[int] = Query(None, description="Filter by year"),
+    name: Optional[str] = Query(None, description="Filter by tournament name"),
+    db: Database = Depends(get_db)
 ):
-    """Get all tournaments with optional filtering"""
-    query = select(TournamentModel)
+    """Get tournaments with optional filtering"""
+    query = "SELECT id, name, year, location, division FROM tournaments WHERE 1=1"
+    params = []
     
     if year:
-        query = query.where(TournamentModel.year == year)
-    if division:
-        query = query.where(TournamentModel.division == division)
+        query += " AND year = $" + str(len(params) + 1)
+        params.append(year)
     
-    query = query.offset(skip).limit(limit)
-    result = await db.execute(query)
-    tournaments = result.scalars().all()
-    return tournaments
-
-@router.get("/{tournament_id}", response_model=Tournament)
-async def get_tournament(tournament_id: int, db: AsyncSession = Depends(get_db)):
-    """Get a specific tournament by ID"""
-    query = select(TournamentModel).where(TournamentModel.id == tournament_id)
-    result = await db.execute(query)
-    tournament = result.scalar_one_or_none()
+    if name:
+        query += " AND name ILIKE $" + str(len(params) + 1)
+        params.append(f"%{name}%")
     
-    if not tournament:
-        raise HTTPException(status_code=404, detail="Tournament not found")
+    query += f" ORDER BY year DESC, name LIMIT ${len(params) + 1} OFFSET ${len(params) + 2}"
+    params.extend([limit, offset])
     
-    return tournament
+    rows = await db.fetch_all(query, *params)
+    return rows
 
-@router.post("/", response_model=Tournament, status_code=status.HTTP_201_CREATED)
-async def create_tournament(tournament: TournamentCreate, db: AsyncSession = Depends(get_db)):
-    """Create a new tournament"""
-    db_tournament = TournamentModel(**tournament.dict())
-    db.add(db_tournament)
-    await db.commit()
-    await db.refresh(db_tournament)
-    return db_tournament
-
-@router.put("/{tournament_id}", response_model=Tournament)
-async def update_tournament(
-    tournament_id: int,
-    tournament_update: TournamentUpdate,
-    db: AsyncSession = Depends(get_db)
+@router.get("/tournaments/{tournament_id}", response_model=Tournament)
+async def get_tournament(
+    tournament_id: UUID,
+    db: Database = Depends(get_db)
 ):
-    """Update a tournament"""
-    query = select(TournamentModel).where(TournamentModel.id == tournament_id)
-    result = await db.execute(query)
-    tournament = result.scalar_one_or_none()
+    """Get tournament by ID"""
+    query = "SELECT id, name, year, location, division FROM tournaments WHERE id = $1"
     
+    tournament = await db.fetch_one(query, tournament_id)
     if not tournament:
         raise HTTPException(status_code=404, detail="Tournament not found")
     
-    update_data = tournament_update.dict(exclude_unset=True)
-    for field, value in update_data.items():
-        setattr(tournament, field, value)
-    
-    await db.commit()
-    await db.refresh(tournament)
     return tournament
 
-@router.delete("/{tournament_id}")
-async def delete_tournament(tournament_id: int, db: AsyncSession = Depends(get_db)):
-    """Delete a tournament"""
-    query = select(TournamentModel).where(TournamentModel.id == tournament_id)
-    result = await db.execute(query)
-    tournament = result.scalar_one_or_none()
+@router.get("/tournaments/{tournament_id}/brackets")
+async def get_tournament_brackets(
+    tournament_id: UUID,
+    weight_class: Optional[str] = Query(None, description="Filter by weight class"),
+    db: Database = Depends(get_db)
+):
+    """Get tournament brackets (simplified structure for now)"""
+    query = """
+    SELECT 
+        m.id,
+        m.round,
+        m.weight_class,
+        winner_p.first_name || ' ' || winner_p.last_name as winner_name,
+        loser_p.first_name || ' ' || loser_p.last_name as loser_name,
+        winner_s.name as winner_school,
+        loser_s.name as loser_school,
+        m.match_result,
+        m.score
+    FROM matches m
+    JOIN participants winner_pt ON m.winner_id = winner_pt.id
+    JOIN participants loser_pt ON m.loser_id = loser_pt.id
+    JOIN people winner_p ON winner_pt.person_id = winner_p.id
+    JOIN people loser_p ON loser_pt.person_id = loser_p.id
+    JOIN schools winner_s ON winner_pt.school_id = winner_s.id
+    JOIN schools loser_s ON loser_pt.school_id = loser_s.id
+    WHERE m.tournament_id = $1
+    """
+    params = [tournament_id]
     
-    if not tournament:
-        raise HTTPException(status_code=404, detail="Tournament not found")
+    if weight_class:
+        query += " AND m.weight_class = $2"
+        params.append(weight_class)
     
-    await db.delete(tournament)
-    await db.commit()
-    return {"message": "Tournament deleted successfully"}
-
-@router.get("/{tournament_id}/brackets")
-async def get_tournament_brackets(tournament_id: int, db: AsyncSession = Depends(get_db)):
-    """Get bracket data for a tournament"""
-    from app.models.models import Bracket as BracketModel, Match as MatchModel
+    query += " ORDER BY m.weight_class, m.round"
     
-    # First verify tournament exists
-    tournament_query = select(TournamentModel).where(TournamentModel.id == tournament_id)
-    tournament_result = await db.execute(tournament_query)
-    tournament = tournament_result.scalar_one_or_none()
+    matches = await db.fetch_all(query, *params)
     
-    if not tournament:
-        raise HTTPException(status_code=404, detail="Tournament not found")
-    
-    # Get brackets for this tournament
-    brackets_query = select(BracketModel).where(BracketModel.tournament_id == tournament_id)
-    brackets_result = await db.execute(brackets_query)
-    brackets = brackets_result.scalars().all()
-    
-    # Get matches for this tournament  
-    matches_query = select(MatchModel).where(MatchModel.bracket_id.in_([b.id for b in brackets]))
-    matches_result = await db.execute(matches_query)
-    matches = matches_result.scalars().all()
-    
-    # Organize data by weight class
-    bracket_data = {}
-    for bracket in brackets:
-        weight_class = bracket.weight_class
-        if weight_class not in bracket_data:
-            bracket_data[weight_class] = {
-                "weight_class": weight_class,
-                "bracket_id": bracket.id,
-                "matches": []
-            }
-        
-        # Add matches for this bracket
-        bracket_matches = [m for m in matches if m.bracket_id == bracket.id]
-        bracket_data[weight_class]["matches"] = [
-            {
-                "id": match.id,
-                "wrestler1_id": match.wrestler1_id,
-                "wrestler2_id": match.wrestler2_id,
-                "winner_id": match.winner_id,
-                "round_name": match.round_name,
-                "match_number": match.match_number,
-                "score": match.score
-            } for match in bracket_matches
-        ]
+    # Group by weight class
+    brackets = {}
+    for match in matches:
+        wc = match["weight_class"] or "Unknown"
+        if wc not in brackets:
+            brackets[wc] = []
+        brackets[wc].append(match)
     
     return {
         "tournament_id": tournament_id,
-        "tournament_name": tournament.name,
-        "year": tournament.year,
-        "brackets": list(bracket_data.values())
+        "brackets": brackets
     }
