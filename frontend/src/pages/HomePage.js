@@ -63,7 +63,8 @@ const HomePage = () => {
           and championship history all in one place.
         </Typography>
         <Box sx={{ mt: 4 }}>
-          <Button
+          {/* remove this button */ }
+          {/* <Button
             variant="contained"
             size="large"
             component={Link}
@@ -71,7 +72,7 @@ const HomePage = () => {
             sx={{ mr: 2, mb: 2 }}
           >
             View Latest Brackets
-          </Button>
+          </Button> */}
           <Button
             variant="outlined"
             size="large"

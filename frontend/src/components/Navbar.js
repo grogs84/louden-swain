@@ -46,9 +46,9 @@ const StyledInputBase = styled(InputBase)(({ theme }) => ({
     paddingLeft: `calc(1em + ${theme.spacing(4)})`,
     transition: theme.transitions.create('width'),
     [theme.breakpoints.up('sm')]: {
-      width: '12ch',
+      width: '14ch',
       '&:focus': {
-        width: '20ch',
+        width: '24ch',
       },
     },
   },
@@ -110,7 +110,7 @@ const Navbar = () => {
           </SearchIconWrapper>
           <form onSubmit={handleSearch}>
             <StyledInputBase
-              placeholder="Search wrestlers, schools..."
+              placeholder="Search wrestlers profiles..."
               inputProps={{ 'aria-label': 'search' }}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
