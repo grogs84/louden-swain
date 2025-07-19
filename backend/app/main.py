@@ -37,16 +37,35 @@ if settings.use_duckdb or os.getenv("USE_DUCKDB", "false").lower() == "true":
         print("DuckDB router enabled for local development")
     except ImportError:
         print("DuckDB router could not be imported - DuckDB functionality disabled")
-        # Fallback to working routers only
-        from app.routers import wrestlers, search
-        app.include_router(wrestlers.router, prefix="/api/wrestlers", tags=["wrestlers"])
-        app.include_router(search.router, prefix="/api/search", tags=["search"])
+    
+    # Also include brackets router for testing bracket functionality
+    try:
+        from app.routers import brackets
+        app.include_router(brackets.router, prefix="/api/brackets", tags=["brackets"])
+        print("Brackets router enabled for testing")
+    except ImportError:
+        print("Brackets router could not be imported")
+        
+    # Include working routers
+    from app.routers import wrestlers, search
+    app.include_router(wrestlers.router, prefix="/api/wrestlers", tags=["wrestlers"])
+    app.include_router(search.router, prefix="/api/search", tags=["search"])
 else:
     # PostgreSQL mode - use only working routers for Supabase
     from app.routers import wrestlers, search
     app.include_router(wrestlers.router, prefix="/api/wrestlers", tags=["wrestlers"])
     app.include_router(search.router, prefix="/api/search", tags=["search"])
     # NOTE: schools, coaches, tournaments, brackets routers disabled until migrated to raw SQL
+
+# Add tournaments endpoint for testing
+@app.get("/tournaments")
+async def get_tournaments():
+    """Get all tournaments - mock data for testing"""
+    return [
+        {"id": 1, "name": "2024 NCAA D1 Wrestling Championships", "year": 2024},
+        {"id": 2, "name": "2023 NCAA D1 Wrestling Championships", "year": 2023},
+        {"id": 3, "name": "2022 NCAA D1 Wrestling Championships", "year": 2022},
+    ]
 
 @app.get("/")
 async def root():
