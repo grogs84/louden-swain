@@ -20,16 +20,21 @@ async def get_wrestlers(
     limit: int = 100,
     db: AsyncSession = Depends(get_db)
 ):
-    """Get all wrestlers with basic info only"""
+    """Get all wrestlers with complete info"""
     
-    # Simple query that should work fast
+    # Enhanced query to get complete wrestler data including weight_class, year, and school
     query = text("""
-        SELECT 
+        SELECT DISTINCT
             p.person_id,
             p.first_name,
-            p.last_name
+            p.last_name,
+            pt.weight_class,
+            pt.year,
+            s.name as school_name
         FROM person p
         JOIN role r ON p.person_id = r.person_id
+        JOIN participant pt ON r.role_id = pt.role_id
+        LEFT JOIN school s ON pt.school_id = s.school_id
         WHERE r.role_type = 'wrestler'
         ORDER BY p.last_name, p.first_name
         OFFSET :offset LIMIT :limit
@@ -44,9 +49,11 @@ async def get_wrestlers(
             "person_id": wrestler.person_id,
             "first_name": title_case_name(wrestler.first_name),
             "last_name": title_case_name(wrestler.last_name),
-            "weight_class": None,
-            "year": None,
-            "school": None
+            "weight_class": wrestler.weight_class,
+            "year": wrestler.year,
+            "school": {
+                "name": title_case_name(wrestler.school_name) if wrestler.school_name else None
+            } if wrestler.school_name else None
         }
         for wrestler in wrestlers
     ]
@@ -59,14 +66,19 @@ async def get_wrestler(
     """Get a specific wrestler by ID with basic info only"""
     
     try:
-        # Simple query for basic wrestler info - cast UUID to text for safety
+        # Enhanced query to get complete wrestler info including weight_class, year, and school
         query = text("""
-            SELECT 
+            SELECT DISTINCT
                 p.person_id::text as person_id,
                 p.first_name,
-                p.last_name
+                p.last_name,
+                pt.weight_class,
+                pt.year,
+                s.name as school_name
             FROM person p
             JOIN role r ON p.person_id = r.person_id
+            JOIN participant pt ON r.role_id = pt.role_id
+            LEFT JOIN school s ON pt.school_id = s.school_id
             WHERE r.role_type = 'wrestler' AND p.person_id::text = :wrestler_id
             LIMIT 1
         """)
@@ -77,24 +89,83 @@ async def get_wrestler(
         if not wrestler:
             raise HTTPException(status_code=404, detail="Wrestler not found")
         
+        # Get actual statistics instead of hardcoded zeros
+        stats_query = text("""
+            SELECT 
+                COUNT(*) as total_matches,
+                SUM(CASE WHEN pm.is_winner = true THEN 1 ELSE 0 END) as wins,
+                SUM(CASE WHEN pm.is_winner = false THEN 1 ELSE 0 END) as losses
+            FROM person p
+            JOIN role r ON p.person_id = r.person_id
+            JOIN participant pt ON r.role_id = pt.role_id
+            JOIN participant_match pm ON pt.participant_id = pm.participant_id
+            WHERE p.person_id::text = :wrestler_id AND r.role_type = 'wrestler'
+        """)
+        
+        stats_result = await db.execute(stats_query, {"wrestler_id": str(wrestler_id)})
+        stats = stats_result.fetchone()
+        
+        total_matches = stats.total_matches if stats else 0
+        wins = stats.wins if stats else 0
+        losses = stats.losses if stats else 0
+        win_percentage = round((wins / total_matches * 100), 1) if total_matches > 0 else 0
+        
         return {
             "id": wrestler.person_id,
             "person_id": wrestler.person_id,
             "first_name": title_case_name(wrestler.first_name),
             "last_name": title_case_name(wrestler.last_name),
-            "weight_class": None,
-            "year": None,
-            "school": None,
+            "weight_class": wrestler.weight_class,
+            "year": wrestler.year,
+            "school": {
+                "name": title_case_name(wrestler.school_name) if wrestler.school_name else None
+            } if wrestler.school_name else None,
             "stats": {
-                "total_matches": 0,
-                "wins": 0,
-                "losses": 0,
-                "win_percentage": 0
+                "total_matches": total_matches,
+                "wins": wins,
+                "losses": losses,
+                "win_percentage": win_percentage
             },
             "matches": []
         }
     except Exception as e:
-        # Return minimal data if query fails
+        # Return minimal data if query fails, but still try to get basic info
+        try:
+            basic_query = text("""
+                SELECT 
+                    p.person_id::text as person_id,
+                    p.first_name,
+                    p.last_name
+                FROM person p
+                JOIN role r ON p.person_id = r.person_id
+                WHERE r.role_type = 'wrestler' AND p.person_id::text = :wrestler_id
+                LIMIT 1
+            """)
+            
+            basic_result = await db.execute(basic_query, {"wrestler_id": str(wrestler_id)})
+            basic_wrestler = basic_result.fetchone()
+            
+            if basic_wrestler:
+                return {
+                    "id": basic_wrestler.person_id,
+                    "person_id": basic_wrestler.person_id,
+                    "first_name": title_case_name(basic_wrestler.first_name),
+                    "last_name": title_case_name(basic_wrestler.last_name),
+                    "weight_class": None,
+                    "year": None,
+                    "school": None,
+                    "stats": {
+                        "total_matches": 0,
+                        "wins": 0,
+                        "losses": 0,
+                        "win_percentage": 0
+                    },
+                    "matches": []
+                }
+        except:
+            pass
+            
+        # Final fallback
         return {
             "id": wrestler_id,
             "person_id": wrestler_id,
@@ -119,15 +190,16 @@ async def get_wrestler_stats(
 ):
     """Get wrestler statistics matching DuckDB format for frontend compatibility"""
     try:
-        # Get match statistics using the participant_match bridge table
+        # Get match statistics using the participant_match bridge table with better result type mapping
         stats_query = text("""
             SELECT 
                 COUNT(*) as total_matches,
                 SUM(CASE WHEN pm.is_winner = true THEN 1 ELSE 0 END) as wins,
                 SUM(CASE WHEN pm.is_winner = false THEN 1 ELSE 0 END) as losses,
                 SUM(CASE WHEN pm.result_type = 'fall' THEN 1 ELSE 0 END) as falls,
-                SUM(CASE WHEN pm.result_type = 'decision' THEN 1 ELSE 0 END) as decisions,
-                SUM(CASE WHEN pm.result_type = 'tech_fall' THEN 1 ELSE 0 END) as tech_falls
+                SUM(CASE WHEN pm.result_type = 'dec' THEN 1 ELSE 0 END) as decisions,
+                SUM(CASE WHEN pm.result_type = 'tech fall' OR pm.result_type = 'tech_fall' THEN 1 ELSE 0 END) as tech_falls,
+                SUM(CASE WHEN pm.result_type = 'maj dec' OR pm.result_type = 'major_dec' THEN 1 ELSE 0 END) as major_decisions
             FROM person p
             JOIN role r ON p.person_id = r.person_id
             JOIN participant pt ON r.role_id = pt.role_id
@@ -145,9 +217,10 @@ async def get_wrestler_stats(
             falls = stats.falls or 0
             decisions = stats.decisions or 0
             tech_falls = stats.tech_falls or 0
+            major_decisions = stats.major_decisions or 0
             win_percentage = round((wins / total_matches * 100), 1) if total_matches > 0 else 0
         else:
-            total_matches = wins = losses = falls = decisions = tech_falls = win_percentage = 0
+            total_matches = wins = losses = falls = decisions = tech_falls = major_decisions = win_percentage = 0
         
         # Return format matching DuckDB version for frontend compatibility
         return {
@@ -156,7 +229,7 @@ async def get_wrestler_stats(
             "losses": losses,
             "pins": falls,  # Map falls to pins for frontend
             "tech_falls": tech_falls,
-            "major_decisions": decisions,  # Map decisions to major_decisions
+            "major_decisions": major_decisions,
             "win_percentage": win_percentage
         }
         
