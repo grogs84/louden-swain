@@ -158,51 +158,5 @@ class ParticipantMatch(Base):
     participant = relationship("Participant", back_populates="match_participations")
     next_match = relationship("Match", foreign_keys=[next_match_id])
 
-# Legacy compatibility classes for existing API endpoints
-class Wrestler(Base):
-    """
-    Legacy wrestler model for backward compatibility
-    This maps to the new Person->Role->Participant structure
-    """
-    __tablename__ = "wrestlers_legacy"
-    
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    first_name = Column(String, nullable=False)
-    last_name = Column(String, nullable=False)
-    weight_class = Column(Integer, nullable=False)
-    year = Column(String, nullable=False)
-    school_id = Column(Integer, nullable=True)
-    wins = Column(Integer, default=0)
-    losses = Column(Integer, default=0)
-    created_at = Column(DateTime, default=func.now())
-
-class Coach(Base):
-    """
-    Legacy coach model for backward compatibility
-    """
-    __tablename__ = "coaches_legacy"
-    
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    first_name = Column(String, nullable=False)
-    last_name = Column(String, nullable=False)
-    school_id = Column(Integer, nullable=True)
-    position = Column(String, nullable=True)
-    years_experience = Column(Integer, default=0)
-    wins = Column(Integer, default=0)
-    losses = Column(Integer, default=0)
-    created_at = Column(DateTime, default=func.now())
-
-class SchoolLegacy(Base):
-    """
-    Legacy school model for backward compatibility
-    """
-    __tablename__ = "schools_legacy"
-    
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(String, nullable=False)
-    state = Column(String, nullable=True)
-    city = Column(String, nullable=True)
-    conference = Column(String, nullable=True)
-    division = Column(String, nullable=True)
-    website = Column(String, nullable=True)
-    created_at = Column(DateTime, default=func.now())
+# Note: Legacy compatibility classes removed as they are no longer needed
+# The API now uses the proper Person->Role->Participant->Match structure directly
