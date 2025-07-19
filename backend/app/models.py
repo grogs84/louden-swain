@@ -154,6 +154,41 @@ class SchoolStats(BaseModel):
     last_year: Optional[int] = None
     win_percentage: float = 0.0
 
+# Profile models for general person profiles
+class PersonRole(BaseModel):
+    role_id: str
+    role_type: str
+
+class PersonProfile(BaseModel):
+    person_id: str
+    first_name: str
+    last_name: str
+    full_name: str
+    search_name: Optional[str] = None
+    date_of_birth: Optional[date] = None
+    city_of_origin: Optional[str] = None
+    state_of_origin: Optional[str] = None
+    roles: List[PersonRole] = []
+
+class RoleStats(BaseModel):
+    person_id: str
+    role_type: str
+
+class WrestlerRoleStats(RoleStats):
+    match_count: int = 0
+    wins: int = 0
+    losses: int = 0
+    win_percentage: float = 0.0
+    aa_count: int = 0
+    pins: int = 0
+    tech_falls: int = 0
+    major_decisions: int = 0
+    total_matches: int = 0  # Legacy compatibility
+
+class CoachRoleStats(RoleStats):
+    # TODO: Define coach stats when implemented
+    message: str = "Coach stats not yet implemented"
+
 # Search models for MVP
 class SearchResult(BaseModel):
     type: str  # "wrestler", "school", "tournament"

@@ -41,6 +41,13 @@ export const wrestlersAPI = {
   search: (params) => apiClient.get('/wrestlers', { params }),
 };
 
+// Profile API (new general profile endpoints)
+export const profileAPI = {
+  getById: (personId) => apiClient.get(`/profile/${personId}`),
+  getStats: (personId, roleType) => apiClient.get(`/profile/${personId}/stats`, { params: { role_type: roleType } }),
+  getMatches: (personId, roleType, params = {}) => apiClient.get(`/profile/${personId}/matches`, { params: { role_type: roleType, ...params } }),
+};
+
 // Schools API
 export const schoolsAPI = {
   getById: (id) => apiClient.get(`/schools/${id}`),
