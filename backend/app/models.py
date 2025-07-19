@@ -105,26 +105,35 @@ class WrestlerProfile(BaseModel):
 
 class WrestlerStats(BaseModel):
     person_id: str
-    total_matches: int = 0
+    match_count: int = 0  # Total number of matches
     wins: int = 0
     losses: int = 0
+    win_percentage: float = 0.0
+    aa_count: int = 0  # All-American count (matches in rounds 6 or 15)
     pins: int = 0
     tech_falls: int = 0
     major_decisions: int = 0
-    win_percentage: float = 0.0
+    # Keep legacy fields for backward compatibility
+    total_matches: int = 0
 
 class WrestlerMatch(BaseModel):
     match_id: str
-    opponent_first_name: str
-    opponent_last_name: str
+    year: int
+    weight_class: Optional[str] = None
+    round: Optional[str] = None
+    wrestler_name: Optional[str] = None  # Wrestler's name in title case
+    scored: Optional[str] = None  # Either the score or fall_time
+    opponent: Optional[str] = None  # Opponent's name in title case
+    opponent_scored: Optional[str] = None  # Opponent's score or '-'
+    result_type: Optional[str] = None  # Type of result
+    # Keep legacy fields for backward compatibility
+    opponent_first_name: Optional[str] = None
+    opponent_last_name: Optional[str] = None
     opponent_school: Optional[str] = None
-    result: str  # "W" or "L"
+    result: Optional[str] = None  # "W" or "L"
     decision: Optional[str] = None
     score: Optional[str] = None
     tournament_name: Optional[str] = None
-    round: Optional[str] = None
-    year: int
-    weight_class: Optional[str] = None
 
 class SchoolProfile(BaseModel):
     school_id: str

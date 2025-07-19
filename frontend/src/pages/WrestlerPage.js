@@ -144,6 +144,14 @@ const WrestlerPage = () => {
                     </Typography>
                   </Grid>
                   <Grid item xs={6}>
+                    <Typography variant="h6" color="secondary">
+                      {stats.aa_count || 0}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      All-American
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6}>
                     <Typography variant="h6">
                       {stats.pins}
                     </Typography>
@@ -221,27 +229,32 @@ const WrestlerPage = () => {
                       <TableRow>
                         <TableCell>Year</TableCell>
                         <TableCell>Weight</TableCell>
-                        <TableCell>Opponent</TableCell>
-                        <TableCell>Result</TableCell>
-                        <TableCell>Score</TableCell>
                         <TableCell>Round</TableCell>
+                        <TableCell>Wrestler</TableCell>
+                        <TableCell>Score</TableCell>
+                        <TableCell>Opponent</TableCell>
+                        <TableCell>Opp Score</TableCell>
+                        <TableCell>Result</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
                       {matches.map((match) => (
-                        <TableRow key={match.id}>
+                        <TableRow key={match.match_id || match.id}>
                           <TableCell>{match.year}</TableCell>
                           <TableCell>{match.weight_class} lbs</TableCell>
-                          <TableCell>{formatFullName(match.opponent_first_name || '', match.opponent_last_name || match.opponent || '')}</TableCell>
+                          <TableCell>{match.round}</TableCell>
+                          <TableCell>{match.wrestler_name || formatFullName(match.opponent_first_name || '', match.opponent_last_name || '')}</TableCell>
+                          <TableCell>{match.scored || match.score || '-'}</TableCell>
+                          <TableCell>{match.opponent || formatFullName(match.opponent_first_name || '', match.opponent_last_name || '')}</TableCell>
+                          <TableCell>{match.opponent_scored || '-'}</TableCell>
                           <TableCell>
                             <Chip
-                              label={match.result}
+                              label={match.result_type || match.result || match.decision}
                               color={match.result === 'W' ? 'success' : 'error'}
                               size="small"
+                              variant="outlined"
                             />
                           </TableCell>
-                          <TableCell>{match.score}</TableCell>
-                          <TableCell>{match.round}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
