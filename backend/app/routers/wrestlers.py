@@ -188,18 +188,15 @@ async def get_wrestler_stats(
     wrestler_id: Union[int, str],
     db: AsyncSession = Depends(get_db)
 ):
-    """Get wrestler statistics matching DuckDB format for frontend compatibility"""
+    """Get wrestler statistics - match count, wins, wins by fall/technical fall"""
     try:
-        # Get match statistics using the participant_match bridge table with better result type mapping
+        # Get focused statistics as requested: match count, wins, wins by fall/technical fall
         stats_query = text("""
             SELECT 
-                COUNT(*) as total_matches,
+                COUNT(*) as match_count,
                 SUM(CASE WHEN pm.is_winner = true THEN 1 ELSE 0 END) as wins,
-                SUM(CASE WHEN pm.is_winner = false THEN 1 ELSE 0 END) as losses,
-                SUM(CASE WHEN pm.result_type = 'fall' THEN 1 ELSE 0 END) as falls,
-                SUM(CASE WHEN pm.result_type = 'dec' THEN 1 ELSE 0 END) as decisions,
-                SUM(CASE WHEN pm.result_type = 'tech fall' OR pm.result_type = 'tech_fall' THEN 1 ELSE 0 END) as tech_falls,
-                SUM(CASE WHEN pm.result_type = 'maj dec' OR pm.result_type = 'major_dec' THEN 1 ELSE 0 END) as major_decisions
+                SUM(CASE WHEN pm.is_winner = true AND pm.result_type = 'fall' THEN 1 ELSE 0 END) as wins_by_fall,
+                SUM(CASE WHEN pm.is_winner = true AND (pm.result_type = 'tech fall' OR pm.result_type = 'tech_fall') THEN 1 ELSE 0 END) as wins_by_tech_fall
             FROM person p
             JOIN role r ON p.person_id = r.person_id
             JOIN participant pt ON r.role_id = pt.role_id
@@ -210,118 +207,101 @@ async def get_wrestler_stats(
         result = await db.execute(stats_query, {"wrestler_id": str(wrestler_id)})
         stats = result.fetchone()
         
-        if stats and stats.total_matches > 0:
-            total_matches = stats.total_matches or 0
+        if stats and stats.match_count > 0:
+            match_count = stats.match_count or 0
             wins = stats.wins or 0
-            losses = stats.losses or 0
-            falls = stats.falls or 0
-            decisions = stats.decisions or 0
-            tech_falls = stats.tech_falls or 0
-            major_decisions = stats.major_decisions or 0
-            win_percentage = round((wins / total_matches * 100), 1) if total_matches > 0 else 0
+            wins_by_fall = stats.wins_by_fall or 0
+            wins_by_tech_fall = stats.wins_by_tech_fall or 0
         else:
-            total_matches = wins = losses = falls = decisions = tech_falls = major_decisions = win_percentage = 0
+            match_count = wins = wins_by_fall = wins_by_tech_fall = 0
         
-        # Return format matching DuckDB version for frontend compatibility
+        # Return focused stats as requested
         return {
-            "total_matches": total_matches,
+            "match_count": match_count,
             "wins": wins,
-            "losses": losses,
-            "pins": falls,  # Map falls to pins for frontend
-            "tech_falls": tech_falls,
-            "major_decisions": major_decisions,
-            "win_percentage": win_percentage
+            "wins_by_fall": wins_by_fall,
+            "wins_by_tech_fall": wins_by_tech_fall
         }
         
     except Exception as e:
-        # Return same format as DuckDB version with zeros
+        # Return zeros on error
         return {
-            "total_matches": 0,
+            "match_count": 0,
             "wins": 0,
-            "losses": 0,
-            "pins": 0,
-            "tech_falls": 0,
-            "major_decisions": 0,
-            "win_percentage": 0
+            "wins_by_fall": 0,
+            "wins_by_tech_fall": 0
         }
 
 @router.get("/{wrestler_id}/matches", response_model=List[Dict[str, Any]])
 async def get_wrestler_matches(
     wrestler_id: Union[int, str],
-    limit: int = 10,
+    limit: int = 100,
     skip: int = 0,
     db: AsyncSession = Depends(get_db)
 ):
-    """Get wrestler match history using participant_match table"""
+    """Get wrestler's complete match results sorted by year and round ascending"""
     
     try:
-        # Get match history with opponent info using participant_match bridge table
+        # Get complete match results with both wrestler and opponent details
         matches_query = text("""
             SELECT DISTINCT
                 m.match_id,
+                t.year,
+                pt.weight_class as weight,
                 m.round,
                 m.round_order,
+                -- Wrestler info
+                p.first_name as wrestler_first_name,
+                p.last_name as wrestler_last_name,
+                pm.score as wrestler_score,
                 pm.is_winner,
-                pm.score,
                 pm.result_type,
-                pm.fall_time,
-                t.name as tournament_name,
-                t.year as tournament_year,
-                t.location as tournament_location,
-                -- Get opponent info
-                p_opp.person_id as opponent_id,
+                -- Opponent info
                 p_opp.first_name as opponent_first_name,
                 p_opp.last_name as opponent_last_name,
-                s_opp.name as opponent_school_name
+                pm_opp.score as opponent_score,
+                -- Winner determination
+                CASE 
+                    WHEN pm.is_winner = true THEN CONCAT(p.first_name, ' ', p.last_name)
+                    WHEN pm_opp.is_winner = true THEN CONCAT(p_opp.first_name, ' ', p_opp.last_name)
+                    ELSE 'Unknown'
+                END as winner
             FROM person p
             JOIN role r ON p.person_id = r.person_id
             JOIN participant pt ON r.role_id = pt.role_id
             JOIN participant_match pm ON pt.participant_id = pm.participant_id
             JOIN match m ON pm.match_id = m.match_id
-            LEFT JOIN tournament t ON m.tournament_id = t.tournament_id
+            JOIN tournament t ON m.tournament_id = t.tournament_id
             -- Get opponent participant in same match
-            LEFT JOIN participant_match pm_opp ON m.match_id = pm_opp.match_id AND pm_opp.participant_id != pm.participant_id
-            LEFT JOIN participant pt_opp ON pm_opp.participant_id = pt_opp.participant_id
-            LEFT JOIN role r_opp ON pt_opp.role_id = r_opp.role_id
-            LEFT JOIN person p_opp ON r_opp.person_id = p_opp.person_id
-            LEFT JOIN school s_opp ON pt_opp.school_id = s_opp.school_id
-            WHERE p.person_id = :wrestler_id AND r.role_type = 'wrestler'
-            ORDER BY t.year DESC, m.round_order ASC
+            JOIN participant_match pm_opp ON m.match_id = pm_opp.match_id AND pm_opp.participant_id != pm.participant_id
+            JOIN participant pt_opp ON pm_opp.participant_id = pt_opp.participant_id
+            JOIN role r_opp ON pt_opp.role_id = r_opp.role_id
+            JOIN person p_opp ON r_opp.person_id = p_opp.person_id
+            WHERE p.person_id::text = :wrestler_id AND r.role_type = 'wrestler'
+            ORDER BY t.year ASC, m.round_order ASC
             OFFSET :skip LIMIT :limit
         """)
         
         result = await db.execute(matches_query, {
-            "wrestler_id": wrestler_id, 
+            "wrestler_id": str(wrestler_id), 
             "skip": skip, 
             "limit": limit
         })
         matches = result.fetchall()
         
-        # Format matches for response
+        # Format matches for response as requested
         formatted_matches = []
         for match in matches:
-            result_display = "W" if match.is_winner else "L"
-            
             formatted_match = {
-                "match_id": match.match_id,
-                "tournament": {
-                    "name": title_case_name(match.tournament_name) if match.tournament_name else "Unknown Tournament",
-                    "year": match.tournament_year,
-                    "location": title_case_name(match.tournament_location) if match.tournament_location else None
-                },
+                "year": match.year,
+                "weight": match.weight,
                 "round": match.round,
-                "result": result_display,
-                "score": str(match.score) if match.score else "N/A",
-                "result_type": title_case_name(match.result_type) if match.result_type else "Decision",
-                "fall_time": match.fall_time,
-                "opponent": {
-                    "id": match.opponent_id,
-                    "first_name": title_case_name(match.opponent_first_name) if match.opponent_first_name else None,
-                    "last_name": title_case_name(match.opponent_last_name) if match.opponent_last_name else None,
-                    "school": {
-                        "name": title_case_name(match.opponent_school_name) if match.opponent_school_name else None
-                    }
-                }
+                "wrestler_name": f"{title_case_name(match.wrestler_first_name or '')} {title_case_name(match.wrestler_last_name or '')}".strip(),
+                "wrestler_score": match.wrestler_score or 0,
+                "opponent_name": f"{title_case_name(match.opponent_first_name or '')} {title_case_name(match.opponent_last_name or '')}".strip(),
+                "opponent_score": match.opponent_score or 0,
+                "result_type": match.result_type or "decision",
+                "winner": title_case_name(match.winner or "Unknown")
             }
             formatted_matches.append(formatted_match)
         

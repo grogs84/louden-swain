@@ -70,30 +70,52 @@ class MockRow:
         self.year = row_data[4] if len(row_data) > 4 else None
         self.school_name = row_data[5] if len(row_data) > 5 else None
         
-        # For stats queries
-        self.total_matches = row_data[0] if len(row_data) > 0 else 0
+        # For stats queries (new format)
+        self.match_count = row_data[0] if len(row_data) > 0 else 0
         self.wins = row_data[1] if len(row_data) > 1 else 0
+        self.wins_by_fall = row_data[2] if len(row_data) > 2 else 0
+        self.wins_by_tech_fall = row_data[3] if len(row_data) > 3 else 0
+        
+        # For old format compatibility
+        self.total_matches = row_data[0] if len(row_data) > 0 else 0
         self.losses = row_data[2] if len(row_data) > 2 else 0
         self.falls = row_data[3] if len(row_data) > 3 else 0
         self.decisions = row_data[4] if len(row_data) > 4 else 0
         self.tech_falls = row_data[5] if len(row_data) > 5 else 0
         self.major_decisions = row_data[6] if len(row_data) > 6 else 0
         
-        # For matches queries  
-        self.match_id = row_data[0] if len(row_data) > 0 else None
-        self.round = row_data[1] if len(row_data) > 1 else None
-        self.round_order = row_data[2] if len(row_data) > 2 else None
-        self.is_winner = row_data[3] if len(row_data) > 3 else None
-        self.score = row_data[4] if len(row_data) > 4 else None
-        self.result_type = row_data[5] if len(row_data) > 5 else None
-        self.fall_time = row_data[6] if len(row_data) > 6 else None
-        self.tournament_name = row_data[7] if len(row_data) > 7 else None
-        self.tournament_year = row_data[8] if len(row_data) > 8 else None
-        self.tournament_location = row_data[9] if len(row_data) > 9 else None
-        self.opponent_id = row_data[10] if len(row_data) > 10 else None
-        self.opponent_first_name = row_data[11] if len(row_data) > 11 else None
-        self.opponent_last_name = row_data[12] if len(row_data) > 12 else None
-        self.opponent_school_name = row_data[13] if len(row_data) > 13 else None
+        # For matches queries (new format)
+        if len(row_data) >= 10:
+            self.match_id = row_data[0]
+            self.year = row_data[1] 
+            self.weight = row_data[2]
+            self.round = row_data[3]
+            self.round_order = row_data[4]
+            self.wrestler_first_name = row_data[5]
+            self.wrestler_last_name = row_data[6] 
+            self.wrestler_score = row_data[7]
+            self.is_winner = row_data[8]
+            self.result_type = row_data[9]
+            self.opponent_first_name = row_data[10] if len(row_data) > 10 else None
+            self.opponent_last_name = row_data[11] if len(row_data) > 11 else None
+            self.opponent_score = row_data[12] if len(row_data) > 12 else None
+            self.winner = row_data[13] if len(row_data) > 13 else None
+        else:
+            # For old match queries
+            self.match_id = row_data[0] if len(row_data) > 0 else None
+            self.round = row_data[1] if len(row_data) > 1 else None
+            self.round_order = row_data[2] if len(row_data) > 2 else None
+            self.is_winner = row_data[3] if len(row_data) > 3 else None
+            self.score = row_data[4] if len(row_data) > 4 else None
+            self.result_type = row_data[5] if len(row_data) > 5 else None
+            self.fall_time = row_data[6] if len(row_data) > 6 else None
+            self.tournament_name = row_data[7] if len(row_data) > 7 else None
+            self.tournament_year = row_data[8] if len(row_data) > 8 else None
+            self.tournament_location = row_data[9] if len(row_data) > 9 else None
+            self.opponent_id = row_data[10] if len(row_data) > 10 else None
+            self.opponent_first_name = row_data[11] if len(row_data) > 11 else None
+            self.opponent_last_name = row_data[12] if len(row_data) > 12 else None
+            self.opponent_school_name = row_data[13] if len(row_data) > 13 else None
 
 @pytest.mark.asyncio
 async def test_get_wrestlers_returns_real_data(duckdb_connection):
@@ -165,7 +187,7 @@ async def test_get_wrestler_individual_returns_real_data(duckdb_connection):
 
 @pytest.mark.asyncio
 async def test_get_wrestler_stats_returns_real_data(duckdb_connection):
-    """Test that wrestler stats endpoint returns actual statistics"""
+    """Test that wrestler stats endpoint returns actual statistics with new format"""
     from routers.wrestlers import get_wrestler_stats
     
     # Get a test wrestler ID
@@ -180,9 +202,9 @@ async def test_get_wrestler_stats_returns_real_data(duckdb_connection):
     
     result = await get_wrestler_stats(wrestler_id=test_wrestler_id, db=mock_db)
     
-    # Should return a dict with statistics
+    # Should return a dict with new statistics format
     assert isinstance(result, dict)
-    required_fields = ['total_matches', 'wins', 'losses', 'pins', 'tech_falls', 'major_decisions', 'win_percentage']
+    required_fields = ['match_count', 'wins', 'wins_by_fall', 'wins_by_tech_fall']
     
     for field in required_fields:
         assert field in result
@@ -192,7 +214,7 @@ async def test_get_wrestler_stats_returns_real_data(duckdb_connection):
 
 @pytest.mark.asyncio
 async def test_get_wrestler_matches_returns_data(duckdb_connection):
-    """Test that wrestler matches endpoint returns match data"""
+    """Test that wrestler matches endpoint returns match data in new format"""
     from routers.wrestlers import get_wrestler_matches
     
     # Get a test wrestler ID who has matches
@@ -220,13 +242,18 @@ async def test_get_wrestler_matches_returns_data(duckdb_connection):
     
     if len(result) > 0:
         match = result[0]
-        assert 'match_id' in match
-        assert 'result' in match
-        assert 'tournament' in match
-        assert 'opponent' in match
+        # Check new format fields
+        expected_fields = ['year', 'weight', 'round', 'wrestler_name', 'wrestler_score', 
+                          'opponent_name', 'opponent_score', 'result_type', 'winner']
+        
+        for field in expected_fields:
+            assert field in match, f"Missing field {field} in match result"
         
         print(f"✅ get_wrestler_matches returns {len(result)} matches")
-        print(f"   First match: {match['result']} vs {match['opponent']['first_name']} {match['opponent']['last_name']}")
+        print(f"   First match: {match['wrestler_name']} vs {match['opponent_name']} in {match['year']}")
+        print(f"   Result: {match['result_type']}, Winner: {match['winner']}")
+    else:
+        print("✅ get_wrestler_matches returns empty list (no matches found)")
 
 def test_no_hardcoded_values_in_code():
     """Test that the code no longer has hardcoded null values"""
