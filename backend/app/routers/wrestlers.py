@@ -176,3 +176,39 @@ async def get_wrestler_matches(
     
     matches = await db.fetch_all(query, wrestler_id, limit)
     return matches
+
+@router.get("/profile-simple/{person_id}")
+async def get_wrestler_profile_simple(
+    person_id: str,
+    db: Database = Depends(get_db)
+):
+    """Get basic wrestler profile using only person table (for migration period)"""
+    query = """
+    SELECT 
+        person_id,
+        first_name,
+        last_name,
+        search_name,
+        date_of_birth,
+        city_of_origin,
+        state_of_origin
+    FROM person
+    WHERE person_id = $1
+    """
+    
+    wrestler = await db.fetch_one(query, person_id)
+    
+    if not wrestler:
+        raise HTTPException(status_code=404, detail="Wrestler not found")
+    
+    return {
+        "person_id": wrestler["person_id"],
+        "first_name": wrestler["first_name"],
+        "last_name": wrestler["last_name"],
+        "full_name": f"{wrestler['first_name']} {wrestler['last_name']}",
+        "search_name": wrestler["search_name"],
+        "date_of_birth": wrestler["date_of_birth"],
+        "city_of_origin": wrestler["city_of_origin"],
+        "state_of_origin": wrestler["state_of_origin"],
+        "status": "Migration in progress - full profile coming soon"
+    }

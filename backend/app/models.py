@@ -1,80 +1,110 @@
 """
 Pydantic models for API request/response validation
+Aligned with Supabase schema using TEXT IDs
 """
 from pydantic import BaseModel
 from typing import Optional, List
-from uuid import UUID
+from datetime import date
 
-# Base models
+# Base models matching Supabase schema
 class PersonBase(BaseModel):
     first_name: str
     last_name: str
+    search_name: Optional[str] = None
+    date_of_birth: Optional[date] = None
+    city_of_origin: Optional[str] = None
+    state_of_origin: Optional[str] = None
+
+class RoleBase(BaseModel):
+    role_type: str  # "wrestler" or "coach"
 
 class SchoolBase(BaseModel):
     name: str
     location: Optional[str] = None
-    state: Optional[str] = None
+    mascot: Optional[str] = None
+    school_type: Optional[str] = None
+    school_url: Optional[str] = None
 
 class TournamentBase(BaseModel):
     name: str
-    year: int
+    date: date
+    year: Optional[int] = None
     location: Optional[str] = None
-    division: str = "Division I"
 
-# Response models
+# Response models with TEXT IDs
 class Person(PersonBase):
-    id: UUID
+    person_id: str
+    
+    class Config:
+        from_attributes = True
+
+class Role(RoleBase):
+    role_id: str
+    person_id: str
     
     class Config:
         from_attributes = True
 
 class School(SchoolBase):
-    id: UUID
+    school_id: str
     
     class Config:
         from_attributes = True
 
 class Tournament(TournamentBase):
-    id: UUID
+    tournament_id: str
     
     class Config:
         from_attributes = True
 
 class Participant(BaseModel):
-    id: UUID
-    person_id: UUID
-    school_id: UUID
-    tournament_id: UUID
-    weight_class: Optional[str] = None
-    seed: Optional[int] = None
+    participant_id: str
+    role_id: str
+    school_id: str
     year: int
+    weight_class: str
+    seed: Optional[int] = None
     
     class Config:
         from_attributes = True
 
 class Match(BaseModel):
-    id: UUID
-    tournament_id: UUID
-    winner_id: UUID
-    loser_id: UUID
-    round: Optional[str] = None
-    match_result: Optional[str] = None
-    score: Optional[str] = None
-    weight_class: Optional[str] = None
+    match_id: str
+    round: str
+    round_order: int
+    bracket_order: int
+    tournament_id: str
+    result_type: Optional[str] = None
+    fall_time: Optional[str] = None
+    tech_time: Optional[str] = None
+    winner_id: Optional[str] = None
     
     class Config:
         from_attributes = True
 
-# Enhanced response models with joined data
+class ParticipantMatch(BaseModel):
+    match_id: str
+    participant_id: str
+    is_winner: Optional[bool] = None
+    score: Optional[int] = None
+    next_match_id: Optional[str] = None
+    
+    class Config:
+        from_attributes = True
+
+# Enhanced response models for MVP features
 class WrestlerProfile(BaseModel):
-    id: UUID
+    person_id: str
     first_name: str
     last_name: str
-    school_name: Optional[str] = None
-    school_location: Optional[str] = None
+    search_name: Optional[str] = None
+    date_of_birth: Optional[date] = None
+    city_of_origin: Optional[str] = None
+    state_of_origin: Optional[str] = None
+    role_id: Optional[str] = None
 
 class WrestlerStats(BaseModel):
-    wrestler_id: UUID
+    person_id: str
     total_matches: int = 0
     wins: int = 0
     losses: int = 0
@@ -84,7 +114,7 @@ class WrestlerStats(BaseModel):
     win_percentage: float = 0.0
 
 class WrestlerMatch(BaseModel):
-    id: UUID
+    match_id: str
     opponent_first_name: str
     opponent_last_name: str
     opponent_school: Optional[str] = None
@@ -96,8 +126,16 @@ class WrestlerMatch(BaseModel):
     year: int
     weight_class: Optional[str] = None
 
+class SchoolProfile(BaseModel):
+    school_id: str
+    name: str
+    location: Optional[str] = None
+    mascot: Optional[str] = None
+    school_type: Optional[str] = None
+    school_url: Optional[str] = None
+
 class SchoolStats(BaseModel):
-    school_id: UUID
+    school_id: str
     total_wrestlers: int = 0
     total_matches: int = 0
     total_wins: int = 0
@@ -107,15 +145,27 @@ class SchoolStats(BaseModel):
     last_year: Optional[int] = None
     win_percentage: float = 0.0
 
-# Search models
+# Search models for MVP
 class SearchResult(BaseModel):
     type: str  # "wrestler", "school", "tournament"
-    id: UUID
+    id: str
     name: str
     additional_info: Optional[str] = None
 
 class SearchResponse(BaseModel):
     query: str
-    wrestlers: List[SearchResult]
-    schools: List[SearchResult]
+    wrestlers: List[SearchResult] = []
+    schools: List[SearchResult] = []
     tournaments: List[SearchResult] = []
+
+class WrestlerSearchResult(BaseModel):
+    """Search result with disambiguation hints for wrestlers with common names"""
+    person_id: str
+    first_name: str
+    last_name: str
+    last_school: Optional[str] = None
+    last_year: Optional[int] = None
+    last_weight_class: Optional[str] = None
+    
+    class Config:
+        from_attributes = True
