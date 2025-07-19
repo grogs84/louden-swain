@@ -3,7 +3,7 @@
 // Test script to simulate frontend API calls
 const axios = require('axios');
 
-const API_BASE_URL = 'http://localhost:8001/api';
+const API_BASE_URL = 'http://localhost:8000/api';
 
 async function testWrestlerAPI() {
     try {
