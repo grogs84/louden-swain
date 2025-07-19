@@ -17,6 +17,7 @@ import {
   Alert,
 } from '@mui/material';
 import { tournamentsAPI, bracketsAPI } from '../services/api';
+import BracketVisualization from '../components/BracketVisualization';
 
 const BracketsPage = () => {
   const { tournamentId } = useParams();
@@ -35,9 +36,9 @@ const BracketsPage = () => {
   );
 
   const { data: bracketData } = useQuery(
-    ['bracket-data', selectedWeightClass],
-    () => bracketsAPI.getData(selectedWeightClass).then(res => res.data),
-    { enabled: !!selectedWeightClass }
+    ['bracket-data', selectedTournament, selectedWeightClass],
+    () => bracketsAPI.getDataByTournamentWeight(selectedTournament, selectedWeightClass).then(res => res.data),
+    { enabled: !!(selectedTournament && selectedWeightClass) }
   );
 
   // Mock tournament data if none exists
@@ -204,31 +205,10 @@ const BracketsPage = () => {
               </Box>
             ) : (
               <Box sx={{ overflow: 'auto', minHeight: '600px', p: 3 }}>
-                <Paper sx={{ p: 3, textAlign: 'center' }}>
-                  <Typography variant="h5" gutterBottom>
-                    Tournament Bracket Visualization
-                  </Typography>
-                  <Typography variant="body1" color="text.secondary" paragraph>
-                    Bracket visualization component will be implemented here.
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Selected Weight Class: {selectedWeightClass} lbs
-                  </Typography>
-                  {bracketData && (
-                    <Box sx={{ mt: 2 }}>
-                      <Typography variant="body2">
-                        Bracket data loaded successfully
-                      </Typography>
-                    </Box>
-                  )}
-                  {brackets && (
-                    <Box sx={{ mt: 1 }}>
-                      <Typography variant="body2" color="text.secondary">
-                        Available brackets: {brackets.length}
-                      </Typography>
-                    </Box>
-                  )}
-                </Paper>
+                <BracketVisualization 
+                  bracketData={bracketData || mockBracketData} 
+                  weightClass={selectedWeightClass}
+                />
               </Box>
             )}
           </CardContent>

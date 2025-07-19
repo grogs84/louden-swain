@@ -51,6 +51,8 @@ export const bracketsAPI = {
   getByTournament: (tournamentId) => apiClient.get(`/brackets/tournament/${tournamentId}`),
   getById: (id) => apiClient.get(`/brackets/${id}`),
   getData: (id) => apiClient.get(`/brackets/${id}/data`),
+  getDataByTournamentWeight: (tournamentId, weightClass) => 
+    apiClient.get(`/brackets/data/tournament/${tournamentId}/weight/${weightClass}`),
   create: (data) => apiClient.post('/brackets', data),
   updateData: (id, data) => apiClient.put(`/brackets/${id}/data`, data),
 };
