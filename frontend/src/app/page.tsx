@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import SearchBar from '@/components/search/search-bar';
 import { SearchFilters } from '@/types';
-import { mockWrestlers, mockSchools, mockCoaches, mockTournaments } from '@/lib/mock-data';
+import { mockWrestlers } from '@/lib/mock-data';
 
 export default function HomePage() {
   const handleSearch = (query: string, filters: SearchFilters) => {
@@ -18,29 +18,25 @@ export default function HomePage() {
       title: 'Browse Wrestlers',
       description: 'Discover wrestler profiles, stats, and career highlights',
       href: '/browse?type=wrestler',
-      icon: '🤼',
-      count: mockWrestlers.length
+      icon: '🤼'
     },
     {
       title: 'Browse Schools',
       description: 'Explore wrestling programs and team information',
       href: '/browse?type=school',
-      icon: '🏫',
-      count: mockSchools.length
+      icon: '🏫'
     },
     {
       title: 'Browse Coaches',
       description: 'Learn about coaching staff and their achievements',
       href: '/browse?type=coach',
-      icon: '👨‍🏫',
-      count: mockCoaches.length
+      icon: '👨‍🏫'
     },
     {
       title: 'Browse Tournaments',
       description: 'View tournament brackets and championship results',
       href: '/browse?type=tournament',
-      icon: '🏆',
-      count: mockTournaments.length
+      icon: '🏆'
     }
   ];
 
@@ -83,9 +79,6 @@ export default function HomePage() {
                   <CardDescription>{card.description}</CardDescription>
                 </CardHeader>
                 <CardContent className="text-center">
-                  <div className="text-2xl font-bold text-primary-500 mb-2">
-                    {card.count}+
-                  </div>
                   <Button variant="outline" className="w-full">
                     Explore
                   </Button>
@@ -126,7 +119,6 @@ export default function HomePage() {
                   <div className="flex justify-between text-sm">
                     <span><strong>{wrestler.wins}</strong> Wins</span>
                     <span><strong>{wrestler.losses}</strong> Losses</span>
-                    <span className="text-primary-500 font-medium">{wrestler.year}</span>
                   </div>
                 </CardContent>
               </Card>

@@ -62,7 +62,6 @@ function BrowseContent() {
           <div className="flex justify-between text-sm">
             <span><strong>{wrestler.wins}</strong> W</span>
             <span><strong>{wrestler.losses}</strong> L</span>
-            <span className="text-primary-500">{wrestler.year}</span>
           </div>
         </CardContent>
       </Card>
