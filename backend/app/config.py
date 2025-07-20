@@ -12,6 +12,19 @@ class Settings(BaseSettings):
     supabase_url: str = os.getenv("SUPABASE_URL", "")
     supabase_key: str = os.getenv("SUPABASE_KEY", "")
     
+    # Next.js Frontend Environment Variables
+    next_public_supabase_url: str = os.getenv("NEXT_PUBLIC_SUPABASE_URL", "")
+    next_public_supabase_anon_key: str = os.getenv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "")
+    
+    # JWT Security
+    jwt_secret_key: str = os.getenv("JWT_SECRET_KEY", "fallback-secret-key")
+    jwt_algorithm: str = os.getenv("JWT_ALGORITHM", "HS256")
+    jwt_expire_minutes: int = int(os.getenv("JWT_EXPIRE_MINUTES", "30"))
+    
+    # Admin User
+    admin_email: str = os.getenv("ADMIN_EMAIL", "admin@example.com")
+    admin_password: str = os.getenv("ADMIN_PASSWORD", "admin123")
+    
     # API
     api_title: str = "Wrestling Data Hub API"
     api_version: str = "1.0.0"

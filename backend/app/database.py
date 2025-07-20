@@ -12,13 +12,18 @@ class Database:
     
     async def connect(self):
         """Create database connection pool"""
-        if not self.pool:
-            self.pool = await asyncpg.create_pool(
-                settings.database_url,
-                min_size=1,
-                max_size=20,
-                command_timeout=60
-            )
+        if not self.pool and settings.database_url:
+            try:
+                self.pool = await asyncpg.create_pool(
+                    settings.database_url,
+                    min_size=1,
+                    max_size=20,
+                    command_timeout=60
+                )
+                print("✅ Connected to Supabase database successfully")
+            except Exception as e:
+                print(f"❌ Failed to connect to database: {e}")
+                raise e
         return self.pool
     
     async def disconnect(self):

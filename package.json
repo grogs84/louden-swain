@@ -1,14 +1,15 @@
 {
-  "name": "ncaa-wrestling-data-hub",
+  "name": "louden-swain",
   "version": "1.0.0",
-  "description": "NCAA D1 Wrestling Championship Data Application",
+  "description": "Wrestling tournament management application",
+  "private": true,
   "scripts": {
-    "build": "cd frontend && npm install && npm run build",
-    "start": "cd frontend && npm start",
-    "install-frontend": "cd frontend && npm install",
-    "install-backend": "cd backend && pip install -r requirements.txt"
+    "dev": "cd frontend && npm run dev",
+    "build": "cd frontend && npm run build",
+    "start": "cd frontend && npm start"
   },
-  "keywords": ["wrestling", "ncaa", "react", "fastapi"],
-  "author": "Wrestling Data Team",
-  "license": "MIT"
+  "workspaces": [
+    "frontend",
+    "backend"
+  ]
 }

@@ -7,15 +7,26 @@ from contextlib import asynccontextmanager
 
 from .database import db
 from .routers import wrestlers, schools, tournaments, search
+from .config import settings
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    await db.connect()
+    if settings.database_url:
+        try:
+            await db.connect()
+            print("🚀 Application started with database connection")
+        except Exception as e:
+            print(f"⚠️ Failed to connect to database: {e}")
+            print("📝 Running without database connection")
+    else:
+        print("📝 No database URL configured, running without database")
     yield
     # Shutdown
-    await db.disconnect()
+    if db.pool:
+        await db.disconnect()
+        print("🔌 Database connection closed")
 
 
 app = FastAPI(
