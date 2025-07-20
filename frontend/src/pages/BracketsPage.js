@@ -16,6 +16,7 @@ import {
   CircularProgress,
   Alert,
 } from '@mui/material';
+import { Bracket, RoundProps } from 'react-brackets';
 import { tournamentsAPI, bracketsAPI } from '../services/api';
 
 const BracketsPage = () => {
@@ -46,8 +47,7 @@ const BracketsPage = () => {
     { id: 2, name: '2023 NCAA D1 Wrestling Championships', year: 2023 },
   ];
 
-  // Mock bracket data for demonstration
-  // eslint-disable-next-line no-unused-vars
+  // Mock bracket data for demonstration with proper react-brackets format
   const mockBracketData = {
     rounds: [
       {
@@ -57,32 +57,32 @@ const BracketsPage = () => {
             id: 1,
             date: '2024-03-21',
             teams: [
-              { name: 'john smith (oklahoma state)', id: 1 },
-              { name: 'mike johnson (iowa)', id: 2 }
+              { name: 'John Smith (Oklahoma State)', id: 1 },
+              { name: 'Mike Johnson (Iowa)', id: 2 }
             ]
           },
           {
             id: 2,
             date: '2024-03-21',
             teams: [
-              { name: 'dave wilson (penn state)', id: 3 },
-              { name: 'tom brown (ohio state)', id: 4 }
+              { name: 'Dave Wilson (Penn State)', id: 3 },
+              { name: 'Tom Brown (Ohio State)', id: 4 }
             ]
           },
           {
             id: 3,
             date: '2024-03-21',
             teams: [
-              { name: 'steve davis (iowa state)', id: 5 },
-              { name: 'mark taylor (michigan)', id: 6 }
+              { name: 'Steve Davis (Iowa State)', id: 5 },
+              { name: 'Mark Taylor (Michigan)', id: 6 }
             ]
           },
           {
             id: 4,
             date: '2024-03-21',
             teams: [
-              { name: 'chris miller (nebraska)', id: 7 },
-              { name: 'jake anderson (wisconsin)', id: 8 }
+              { name: 'Chris Miller (Nebraska)', id: 7 },
+              { name: 'Jake Anderson (Wisconsin)', id: 8 }
             ]
           }
         ]
@@ -94,16 +94,16 @@ const BracketsPage = () => {
             id: 5,
             date: '2024-03-22',
             teams: [
-              { name: 'john smith (oklahoma state)', id: 1 },
-              { name: 'dave wilson (penn state)', id: 3 }
+              { name: 'John Smith (Oklahoma State)', id: 1 },
+              { name: 'Dave Wilson (Penn State)', id: 3 }
             ]
           },
           {
             id: 6,
             date: '2024-03-22',
             teams: [
-              { name: 'steve davis (iowa state)', id: 5 },
-              { name: 'chris miller (nebraska)', id: 7 }
+              { name: 'Steve Davis (Iowa State)', id: 5 },
+              { name: 'Chris Miller (Nebraska)', id: 7 }
             ]
           }
         ]
@@ -115,8 +115,8 @@ const BracketsPage = () => {
             id: 7,
             date: '2024-03-23',
             teams: [
-              { name: 'john smith (oklahoma state)', id: 1 },
-              { name: 'steve davis (iowa state)', id: 5 }
+              { name: 'John Smith (Oklahoma State)', id: 1 },
+              { name: 'Steve Davis (Iowa State)', id: 5 }
             ]
           }
         ]
@@ -128,8 +128,8 @@ const BracketsPage = () => {
             id: 8,
             date: '2024-03-24',
             teams: [
-              { name: 'john smith (oklahoma state)', id: 1 },
-              { name: 'TBD', id: null }
+              { name: 'John Smith (Oklahoma State)', id: 1 },
+              { name: null }
             ]
           }
         ]
@@ -203,32 +203,46 @@ const BracketsPage = () => {
                 <CircularProgress />
               </Box>
             ) : (
-              <Box sx={{ overflow: 'auto', minHeight: '600px', p: 3 }}>
-                <Paper sx={{ p: 3, textAlign: 'center' }}>
-                  <Typography variant="h5" gutterBottom>
-                    Tournament Bracket Visualization
-                  </Typography>
-                  <Typography variant="body1" color="text.secondary" paragraph>
-                    Bracket visualization component will be implemented here.
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Selected Weight Class: {selectedWeightClass} lbs
-                  </Typography>
-                  {bracketData && (
-                    <Box sx={{ mt: 2 }}>
-                      <Typography variant="body2">
-                        Bracket data loaded successfully
-                      </Typography>
-                    </Box>
-                  )}
-                  {brackets && (
-                    <Box sx={{ mt: 1 }}>
-                      <Typography variant="body2" color="text.secondary">
-                        Available brackets: {brackets.length}
-                      </Typography>
-                    </Box>
-                  )}
-                </Paper>
+              <Box sx={{ overflow: 'auto', minHeight: '600px', p: 3, backgroundColor: '#f5f5f5' }}>
+                {bracketData || mockBracketData ? (
+                  <Bracket
+                    rounds={bracketData?.rounds || mockBracketData.rounds}
+                    roundTitleComponent={(title, roundIndex) => {
+                      return (
+                        <div style={{ textAlign: 'center', marginBottom: 10 }}>
+                          <Typography variant="h6">{title}</Typography>
+                        </div>
+                      );
+                    }}
+                    mobileBreakpoint={768}
+                  />
+                ) : (
+                  <Paper sx={{ p: 3, textAlign: 'center' }}>
+                    <Typography variant="h5" gutterBottom>
+                      Tournament Bracket Visualization
+                    </Typography>
+                    <Typography variant="body1" color="text.secondary" paragraph>
+                      Bracket visualization component will be implemented here.
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Selected Weight Class: {selectedWeightClass} lbs
+                    </Typography>
+                    {bracketData && (
+                      <Box sx={{ mt: 2 }}>
+                        <Typography variant="body2">
+                          Bracket data loaded successfully
+                        </Typography>
+                      </Box>
+                    )}
+                    {brackets && (
+                      <Box sx={{ mt: 1 }}>
+                        <Typography variant="body2" color="text.secondary">
+                          Available brackets: {brackets.length}
+                        </Typography>
+                      </Box>
+                    )}
+                  </Paper>
+                )}
               </Box>
             )}
           </CardContent>

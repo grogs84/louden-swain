@@ -7,6 +7,7 @@ import WrestlerPage from './pages/WrestlerPage';
 import SchoolPage from './pages/SchoolPage';
 import BracketsPage from './pages/BracketsPage';
 import SearchPage from './pages/SearchPage';
+import ProfilePage from './pages/ProfilePage';
 
 function App() {
   return (
@@ -15,6 +16,7 @@ function App() {
       <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
         <Routes>
           <Route path="/" element={<HomePage />} />
+          <Route path="/profile/:id" element={<ProfilePage />} />
           <Route path="/wrestler/:id" element={<WrestlerPage />} />
           <Route path="/school/:id" element={<SchoolPage />} />
           <Route path="/brackets" element={<BracketsPage />} />

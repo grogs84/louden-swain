@@ -130,6 +130,98 @@ const HomePage = () => {
         </Grid>
       </Box>
 
+      {/* Browse Section */}
+      <Box sx={{ my: 8 }}>
+        <Typography variant="h3" component="h2" textAlign="center" gutterBottom sx={{ mb: 6 }}>
+          Browse Platform Content
+        </Typography>
+        <Grid container spacing={4} sx={{ mb: 4 }}>
+          <Grid item xs={12} sm={6} md={4}>
+            <Card 
+              component={Link}
+              to="/search?type=wrestlers"
+              sx={{ 
+                textDecoration: 'none',
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                transition: 'transform 0.2s, box-shadow 0.2s',
+                '&:hover': {
+                  transform: 'translateY(-4px)',
+                  boxShadow: 4,
+                },
+              }}
+            >
+              <CardContent sx={{ flexGrow: 1, textAlign: 'center', py: 4 }}>
+                <Person sx={{ fontSize: 60, color: 'primary.main', mb: 2 }} />
+                <Typography variant="h5" component="h3" gutterBottom>
+                  Browse Wrestlers
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Explore wrestler profiles, statistics, and championship history
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+          
+          <Grid item xs={12} sm={6} md={4}>
+            <Card 
+              component={Link}
+              to="/search?type=schools"
+              sx={{ 
+                textDecoration: 'none',
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                transition: 'transform 0.2s, box-shadow 0.2s',
+                '&:hover': {
+                  transform: 'translateY(-4px)',
+                  boxShadow: 4,
+                },
+              }}
+            >
+              <CardContent sx={{ flexGrow: 1, textAlign: 'center', py: 4 }}>
+                <School sx={{ fontSize: 60, color: 'secondary.main', mb: 2 }} />
+                <Typography variant="h5" component="h3" gutterBottom>
+                  Browse Schools
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Discover wrestling programs, team rosters, and school achievements
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+          
+          <Grid item xs={12} sm={6} md={4}>
+            <Card 
+              component={Link}
+              to="/search?type=coaches"
+              sx={{ 
+                textDecoration: 'none',
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                transition: 'transform 0.2s, box-shadow 0.2s',
+                '&:hover': {
+                  transform: 'translateY(-4px)',
+                  boxShadow: 4,
+                },
+              }}
+            >
+              <CardContent sx={{ flexGrow: 1, textAlign: 'center', py: 4 }}>
+                <EmojiEvents sx={{ fontSize: 60, color: 'warning.main', mb: 2 }} />
+                <Typography variant="h5" component="h3" gutterBottom>
+                  Browse Coaches
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Find coaching staff profiles, experience, and team records
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+      </Box>
+
       {/* About Section */}
       <Paper sx={{ p: 6, my: 8, backgroundColor: 'grey.50' }}>
         <Typography variant="h4" component="h2" textAlign="center" gutterBottom>
