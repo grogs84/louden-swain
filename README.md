@@ -1,4 +1,4 @@
-# Louden Swain - Wrestling Tournament Management Platform
+# NCAA Wrestling Hub
 
 A comprehensive NCAA D1 wrestling data platform featuring wrestler profiles, tournament brackets, school information, and search functionality. Built with a modern tech stack including Next.js frontend and FastAPI backend.
 
