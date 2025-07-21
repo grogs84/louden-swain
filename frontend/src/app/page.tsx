@@ -7,6 +7,8 @@ import SearchBar from '@/components/search/search-bar';
 import { SearchFilters } from '@/types';
 import { mockWrestlers } from '@/lib/mock-data';
 
+const HERO_TITLE = "D1 NCAA Wrestling Championship Data Hub";
+
 export default function HomePage() {
   const handleSearch = (query: string, filters: SearchFilters) => {
     // Mock search functionality - in real app this would call API
@@ -47,11 +49,11 @@ export default function HomePage() {
       {/* Hero Section */}
       <section className="text-center space-y-8">
         <div className="space-y-4">
-          <h1 className="text-4xl md:text-6xl font-bold text-foreground">
-            Louden Swain
+          <h1 className="text-3xl md:text-5xl font-bold text-foreground">
+            {HERO_TITLE}
           </h1>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            Your comprehensive NCAA D1 Wrestling Championship data platform. 
+            Your comprehensive NCAA D1 Wrestling Championship data resource. 
             Search wrestlers, explore school programs, and view tournament brackets.
           </p>
         </div>
