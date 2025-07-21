@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, test, copilot/fix-19]
+    branches: [main, test, copilot/fix-19, copilot/fix-62ddb195-c081-464c-85d1-cffb9f6c9f61]
   pull_request:
     branches: [main, test]
 
