@@ -1,9 +1,8 @@
 {
   "version": 2,
   "name": "louden-swain",
-  "buildCommand": "npm run build",
-  "outputDirectory": ".next",
-  "rootDirectory": "frontend",
+  "buildCommand": "cd frontend && npm run build",
+  "outputDirectory": "frontend/.next",
   "framework": "nextjs",
   "env": {
     "NODE_ENV": "production"
