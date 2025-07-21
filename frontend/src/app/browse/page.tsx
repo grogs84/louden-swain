@@ -41,7 +41,7 @@ function BrowseContent() {
   const { data, title, icon } = getDataForType();
 
   const renderWrestlerCard = (wrestler: Wrestler) => (
-    <Link href={`/profile/${wrestler.id}`}>
+    <Link href={`/profile/${wrestler.id}`} key={wrestler.id}>
       <Card className="hover:shadow-lg transition-all duration-200">
         <CardHeader>
           <div className="flex items-center space-x-4">
