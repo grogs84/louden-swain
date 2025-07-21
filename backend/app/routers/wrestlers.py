@@ -1,11 +1,13 @@
 """
 Wrestlers API endpoints
 """
-from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import List, Optional
 from uuid import UUID
-from ..database import get_db, Database
-from ..models import WrestlerProfile, WrestlerStats, WrestlerMatch
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+
+from ..database import Database, get_db
+from ..models import WrestlerMatch, WrestlerProfile, WrestlerStats
 
 router = APIRouter()
 

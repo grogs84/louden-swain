@@ -1,8 +1,10 @@
 """
 Database connection utilities for Wrestling Data Hub
 """
+from typing import Any, Dict, List, Optional
+
 import asyncpg
-from typing import List, Dict, Any, Optional
+
 from .config import settings
 
 

@@ -2,9 +2,10 @@
 Pydantic models for API request/response validation
 Aligned with Supabase schema using TEXT IDs
 """
-from pydantic import BaseModel
-from typing import Optional, List
 from datetime import date
+from typing import List, Optional
+
+from pydantic import BaseModel
 
 
 # Base models matching Supabase schema

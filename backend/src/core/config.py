@@ -9,12 +9,12 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     # Database
     database_url: str = "postgresql+asyncpg://user:password@localhost/dbname"
-    
+
     # Supabase
     supabase_url: str = ""
     supabase_key: str = ""
-    
-    # Next.js Frontend Environment Variables  
+
+    # Next.js Frontend Environment Variables
     next_public_supabase_url: str = ""
     next_public_supabase_anon_key: str = ""
 

@@ -1,10 +1,12 @@
 """
 Search API endpoints
 """
-from fastapi import APIRouter, Depends, Query
 from typing import List
-from ..database import get_db, Database
-from ..models import SearchResult, SearchResponse, WrestlerSearchResult
+
+from fastapi import APIRouter, Depends, Query
+
+from ..database import Database, get_db
+from ..models import SearchResponse, SearchResult, WrestlerSearchResult
 
 router = APIRouter()
 

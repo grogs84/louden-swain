@@ -1,10 +1,12 @@
 """
 Schools API endpoints
 """
-from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import List, Optional
 from uuid import UUID
-from ..database import get_db, Database
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+
+from ..database import Database, get_db
 from ..models import School, SchoolStats, WrestlerProfile
 
 router = APIRouter()

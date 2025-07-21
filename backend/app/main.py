@@ -1,13 +1,14 @@
 """
 Main FastAPI application
 """
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
-from .database import db
-from .routers import wrestlers, schools, tournaments, search
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
 from .config import settings
+from .database import db
+from .routers import schools, search, tournaments, wrestlers
 
 
 @asynccontextmanager

@@ -2,6 +2,7 @@
 Configuration settings for the Wrestling Data Hub API
 """
 import os
+
 from pydantic_settings import BaseSettings
 
 
