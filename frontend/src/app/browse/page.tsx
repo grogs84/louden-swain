@@ -86,7 +86,7 @@ function BrowseContent() {
   );
 
   const renderCoachCard = (coach: Coach) => (
-    <Link href={`/profile/${coach.id}`}>
+    <Link href={`/profile/${coach.id}`} key={coach.id}>
       <Card className="hover:shadow-lg transition-all duration-200">
         <CardHeader>
           <CardTitle className="text-lg">{coach.name}</CardTitle>
