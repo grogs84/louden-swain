@@ -56,7 +56,7 @@ jobs:
         run: cd backend && flake8 --exit-zero || echo "Linting issues found but not blocking CI"
 
       - name: Run backend code formatting check (black)
-        run: cd backend && black --check . || echo "Code formatting issues found but not blocking CI"
+        run: cd backend && black --check . --exclude 'venv'|| echo "Code formatting issues found but not blocking CI"
 
       - name: Run backend import sorting check (isort)
         run: cd backend && isort --check-only . || echo "Import sorting issues found but not blocking CI"
