@@ -8,7 +8,7 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     # Database
-    database_url: str = "postgresql+asyncpg://user:password@localhost/dbname"
+    database_url: str = "sqlite+aiosqlite:///./test.db"
 
     # Supabase
     supabase_url: str = ""
