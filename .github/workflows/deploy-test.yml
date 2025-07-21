@@ -2,7 +2,7 @@ name: Deploy to Test Environment
 
 on:
   push:
-    branches: [test]
+    branches: [test, copilot/fix-62ddb195-c081-464c-85d1-cffb9f6c9f61]
   # Enable manual deployment
   workflow_dispatch:
 
