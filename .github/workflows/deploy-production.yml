@@ -8,9 +8,10 @@ on:
 
 permissions:
   contents: write
+  statuses: write
   pull-requests: write
   issues: write
-  
+
 jobs:
   quality-gates:
     runs-on: ubuntu-latest
