@@ -6,7 +6,14 @@
   "scripts": {
     "dev": "cd frontend && npm run dev",
     "build": "cd frontend && npm run build",
-    "start": "cd frontend && npm start"
+    "start": "cd frontend && npm start",
+    "lint": "cd frontend && npm run lint",
+    "type-check": "cd frontend && npm run type-check",
+    "test:frontend": "cd frontend && npm run lint && npm run type-check && npm run build",
+    "test:backend": "cd backend && flake8 && black --check . && isort --check-only . && python -m pytest -v",
+    "test": "npm run test:frontend && npm run test:backend",
+    "format:backend": "cd backend && black . && isort .",
+    "setup:backend": "cd backend && pip install -r requirements.txt && pip install -r requirements-dev.txt"
   },
   "workspaces": [
     "frontend",

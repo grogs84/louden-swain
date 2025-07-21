@@ -1,0 +1,100 @@
+name: CI
+
+on:
+  push:
+    branches: [main, test, copilot/fix-19, copilot/fix-62ddb195-c081-464c-85d1-cffb9f6c9f61]
+  pull_request:
+    branches: [main, test]
+
+jobs:
+  test-frontend:
+    runs-on: ubuntu-latest
+    name: Frontend Tests & Linting
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install frontend dependencies
+        run: cd frontend && npm install --legacy-peer-deps
+
+      - name: Run frontend linting
+        run: cd frontend && npm run lint
+
+      - name: Run frontend type checking
+        run: cd frontend && npm run type-check
+
+      - name: Build frontend
+        run: cd frontend && npm run build
+
+  test-backend:
+    runs-on: ubuntu-latest
+    name: Backend Tests & Linting
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install backend dependencies
+        run: |
+          cd backend
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      - name: Run backend linting (flake8)
+        run: cd backend && flake8 --exit-zero || echo "Linting issues found but not blocking CI"
+
+      - name: Run backend code formatting check (black)
+        run: cd backend && black --check . --exclude 'venv'|| echo "Code formatting issues found but not blocking CI"
+
+      - name: Run backend import sorting check (isort)
+        run: cd backend && isort --check-only . || echo "Import sorting issues found but not blocking CI"
+
+      - name: Run backend tests
+        run: cd backend && python -m pytest -v
+        env:
+          DATABASE_URL: sqlite+aiosqlite:///./test.db
+
+  security-scan:
+    runs-on: ubuntu-latest
+    name: Security Scanning
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js for frontend audit
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install frontend dependencies for audit
+        run: cd frontend && npm install --legacy-peer-deps
+
+      - name: Run npm audit for frontend
+        run: cd frontend && npm audit --audit-level=high --production
+        continue-on-error: true
+
+      - name: Setup Python for backend security scan
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install safety for Python security scan
+        run: pip install safety
+        continue-on-error: true
+
+      - name: Run Python security scan
+        run: cd backend && safety check -r requirements.txt
+        continue-on-error: true

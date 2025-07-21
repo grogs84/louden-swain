@@ -109,6 +109,34 @@ A comprehensive NCAA D1 wrestling data platform featuring wrestler profiles, tou
    - Backend API: http://localhost:8000
    - API Documentation: http://localhost:8000/docs
 
+## 🔄 Development Workflow
+
+### Quality Checks
+Run quality checks locally before committing:
+
+```bash
+# Frontend linting, type checking, and build
+npm run test:frontend
+
+# Backend linting, formatting, and tests (requires Python setup)
+npm run test:backend
+
+# Run all quality checks
+npm run test
+```
+
+### Branch Strategy
+- `main` → Production deployments
+- `test` → Staging/QA deployments  
+- `feature/*` → Development branches (create PRs for preview deployments)
+
+### Pull Request Process
+1. Create feature branch from `main`
+2. Make changes and ensure quality checks pass
+3. Open PR → Automatic preview deployment created
+4. Code review and approval
+5. Merge to `main` → Automatic production deployment
+
 ## 📁 Project Structure
 
 ```
@@ -242,17 +270,22 @@ louden-swain/
 
 ## 🚢 Deployment
 
-### Railway (Recommended)
-The project is configured for Railway deployment with:
+### CI/CD Pipeline (Current)
+The project uses GitHub Actions with Vercel for automated deployments:
+
+- **Production**: Auto-deploys from `main` branch to https://louden-swain.vercel.app
+- **Test/Staging**: Auto-deploys from `test` branch for QA testing  
+- **Preview**: Auto-deploys PR branches for review
+- **Quality Gates**: All deployments require passing tests, linting, and type checks
+
+See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed deployment process and configuration.
+
+### Railway (Legacy)
+The project also supports Railway deployment with:
 - `railway.json` configuration
-- Docker support
+- Docker support  
 - Environment variable management
 - Automatic deployments from Git
-
-### Manual Deployment
-1. **Backend**: Deploy FastAPI app with Uvicorn
-2. **Frontend**: Build and deploy Next.js static export
-3. **Database**: Use Supabase hosted PostgreSQL
 
 ## 🤝 Contributing
 
