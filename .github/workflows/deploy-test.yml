@@ -48,7 +48,7 @@ jobs:
       - name: Run backend tests
         run: cd backend && python -m pytest -v
         env:
-          DATABASE_URL: sqlite:///./test.db
+          DATABASE_URL: sqlite+aiosqlite:///./test.db
 
   deploy:
     needs: quality-gates
