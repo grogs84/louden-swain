@@ -208,7 +208,6 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 node_modules/
-package-lock.json
 
 # Next.js
 .next/
