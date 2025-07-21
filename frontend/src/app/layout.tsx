@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { QueryProvider } from '@/lib/query-provider'
+import QueryProvider from '@/lib/query-provider'
 import Layout from '@/components/ui/layout'
 import '@/styles/globals.css'
 
