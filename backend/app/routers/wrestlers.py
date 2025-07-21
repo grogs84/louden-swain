@@ -9,6 +9,7 @@ from ..models import WrestlerProfile, WrestlerStats, WrestlerMatch
 
 router = APIRouter()
 
+
 @router.get("/wrestlers", response_model=List[WrestlerProfile])
 async def get_wrestlers(
     limit: int = Query(20, le=100, description="Maximum number of results"),
@@ -16,11 +17,11 @@ async def get_wrestlers(
     name: Optional[str] = Query(None, description="Filter by wrestler name"),
     school: Optional[str] = Query(None, description="Filter by school name"),
     weight_class: Optional[str] = Query(None, description="Filter by weight class"),
-    db: Database = Depends(get_db)
+    db: Database = Depends(get_db),
 ):
     """Get wrestlers with optional filtering"""
     query = """
-    SELECT DISTINCT 
+    SELECT DISTINCT
         p.id,
         p.first_name,
         p.last_name,
@@ -32,33 +33,40 @@ async def get_wrestlers(
     WHERE 1=1
     """
     params = []
-    
+
     if name:
-        query += " AND (p.first_name ILIKE $" + str(len(params) + 1) + " OR p.last_name ILIKE $" + str(len(params) + 1) + ")"
+        query += (
+            " AND (p.first_name ILIKE $"
+            + str(len(params) + 1)
+            + " OR p.last_name ILIKE $"
+            + str(len(params) + 1)
+            + ")"
+        )
         params.append(f"%{name}%")
-    
+
     if school:
         query += " AND s.name ILIKE $" + str(len(params) + 1)
         params.append(f"%{school}%")
-    
+
     if weight_class:
         query += " AND pt.weight_class = $" + str(len(params) + 1)
         params.append(weight_class)
-    
-    query += f" ORDER BY p.last_name, p.first_name LIMIT ${len(params) + 1} OFFSET ${len(params) + 2}"
+
+    query += (
+        f" ORDER BY p.last_name, p.first_name LIMIT ${len(params) + 1} "
+        f"OFFSET ${len(params) + 2}"
+    )
     params.extend([limit, offset])
-    
+
     rows = await db.fetch_all(query, *params)
     return rows
 
+
 @router.get("/wrestlers/{wrestler_id}", response_model=WrestlerProfile)
-async def get_wrestler(
-    wrestler_id: UUID,
-    db: Database = Depends(get_db)
-):
+async def get_wrestler(wrestler_id: UUID, db: Database = Depends(get_db)):
     """Get wrestler by ID"""
     query = """
-    SELECT 
+    SELECT
         p.id,
         p.first_name,
         p.last_name,
@@ -70,23 +78,21 @@ async def get_wrestler(
     WHERE p.id = $1
     LIMIT 1
     """
-    
+
     wrestler = await db.fetch_one(query, wrestler_id)
     if not wrestler:
         raise HTTPException(status_code=404, detail="Wrestler not found")
-    
+
     return wrestler
 
+
 @router.get("/wrestlers/{wrestler_id}/stats", response_model=WrestlerStats)
-async def get_wrestler_stats(
-    wrestler_id: UUID,
-    db: Database = Depends(get_db)
-):
+async def get_wrestler_stats(wrestler_id: UUID, db: Database = Depends(get_db)):
     """Get wrestler statistics"""
     query = """
     WITH wrestler_matches AS (
-        SELECT 
-            CASE 
+        SELECT
+            CASE
                 WHEN m.winner_id = pt.id THEN 'W'
                 WHEN m.loser_id = pt.id THEN 'L'
             END as result,
@@ -95,28 +101,36 @@ async def get_wrestler_stats(
         LEFT JOIN matches m ON (pt.id = m.winner_id OR pt.id = m.loser_id)
         WHERE pt.person_id = $1 AND m.id IS NOT NULL
     )
-    SELECT 
+    SELECT
         COUNT(*) as total_matches,
         COUNT(CASE WHEN result = 'W' THEN 1 END) as wins,
         COUNT(CASE WHEN result = 'L' THEN 1 END) as losses,
         COUNT(CASE WHEN result = 'W' AND match_result = 'Fall' THEN 1 END) as pins,
-        COUNT(CASE WHEN result = 'W' AND match_result = 'Tech Fall' THEN 1 END) as tech_falls,
-        COUNT(CASE WHEN result = 'W' AND match_result = 'Major Decision' THEN 1 END) as major_decisions
+        COUNT(
+            CASE WHEN result = 'W' AND match_result = 'Tech Fall' THEN 1 END
+        ) as tech_falls,
+        COUNT(
+            CASE WHEN result = 'W' AND match_result = 'Major Decision' THEN 1 END
+        ) as major_decisions
     FROM wrestler_matches
     """
-    
+
     stats = await db.fetch_one(query, wrestler_id)
     if not stats:
         stats = {
-            "total_matches": 0, "wins": 0, "losses": 0,
-            "pins": 0, "tech_falls": 0, "major_decisions": 0
+            "total_matches": 0,
+            "wins": 0,
+            "losses": 0,
+            "pins": 0,
+            "tech_falls": 0,
+            "major_decisions": 0,
         }
-    
+
     # Calculate win percentage
     total = stats["total_matches"] or 0
     wins = stats["wins"] or 0
     win_percentage = (wins / total * 100) if total > 0 else 0.0
-    
+
     return {
         "wrestler_id": wrestler_id,
         "total_matches": total,
@@ -125,32 +139,33 @@ async def get_wrestler_stats(
         "pins": stats["pins"] or 0,
         "tech_falls": stats["tech_falls"] or 0,
         "major_decisions": stats["major_decisions"] or 0,
-        "win_percentage": round(win_percentage, 1)
+        "win_percentage": round(win_percentage, 1),
     }
+
 
 @router.get("/wrestlers/{wrestler_id}/matches", response_model=List[WrestlerMatch])
 async def get_wrestler_matches(
     wrestler_id: UUID,
     limit: int = Query(100, le=500, description="Maximum number of matches"),
-    db: Database = Depends(get_db)
+    db: Database = Depends(get_db),
 ):
     """Get wrestler's match history"""
     query = """
-    SELECT 
+    SELECT
         m.id,
-        CASE 
+        CASE
             WHEN m.winner_id = pt.id THEN op_p.first_name
             ELSE winner_p.first_name
         END as opponent_first_name,
-        CASE 
+        CASE
             WHEN m.winner_id = pt.id THEN op_p.last_name
             ELSE winner_p.last_name
         END as opponent_last_name,
-        CASE 
+        CASE
             WHEN m.winner_id = pt.id THEN op_s.name
             ELSE winner_s.name
         END as opponent_school,
-        CASE 
+        CASE
             WHEN m.winner_id = pt.id THEN 'W'
             ELSE 'L'
         END as result,
@@ -173,18 +188,16 @@ async def get_wrestler_matches(
     ORDER BY t.year ASC, m.round
     LIMIT $2
     """
-    
+
     matches = await db.fetch_all(query, wrestler_id, limit)
     return matches
 
+
 @router.get("/profile-simple/{person_id}")
-async def get_wrestler_profile_simple(
-    person_id: str,
-    db: Database = Depends(get_db)
-):
+async def get_wrestler_profile_simple(person_id: str, db: Database = Depends(get_db)):
     """Get basic wrestler profile using only person table (for migration period)"""
     query = """
-    SELECT 
+    SELECT
         person_id,
         first_name,
         last_name,
@@ -195,12 +208,12 @@ async def get_wrestler_profile_simple(
     FROM person
     WHERE person_id = $1
     """
-    
+
     wrestler = await db.fetch_one(query, person_id)
-    
+
     if not wrestler:
         raise HTTPException(status_code=404, detail="Wrestler not found")
-    
+
     return {
         "person_id": wrestler["person_id"],
         "first_name": wrestler["first_name"],
@@ -210,5 +223,5 @@ async def get_wrestler_profile_simple(
         "date_of_birth": wrestler["date_of_birth"],
         "city_of_origin": wrestler["city_of_origin"],
         "state_of_origin": wrestler["state_of_origin"],
-        "status": "Migration in progress - full profile coming soon"
+        "status": "Migration in progress - full profile coming soon",
     }

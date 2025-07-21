@@ -33,7 +33,7 @@ app = FastAPI(
     title="NCAA Wrestling API",
     description="API for NCAA wrestling data with wrestler search and profiles",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 # CORS middleware

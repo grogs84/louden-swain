@@ -9,6 +9,14 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     # Database
     database_url: str = "postgresql+asyncpg://user:password@localhost/dbname"
+    
+    # Supabase
+    supabase_url: str = ""
+    supabase_key: str = ""
+    
+    # Next.js Frontend Environment Variables  
+    next_public_supabase_url: str = ""
+    next_public_supabase_anon_key: str = ""
 
     # JWT Security
     jwt_secret_key: str = "your-secret-key-here"
@@ -37,7 +45,7 @@ class Settings(BaseSettings):
 
     class Config:
         env_file = ".env"
-        case_sensitive = True
+        case_sensitive = False  # Changed to False to match our env vars
 
 
 settings = Settings()
