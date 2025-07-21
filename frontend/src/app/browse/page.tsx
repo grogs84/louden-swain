@@ -102,7 +102,7 @@ function BrowseContent() {
   );
 
   const renderTournamentCard = (tournament: Tournament) => (
-    <Link href={`/tournament/${tournament.id}`}>
+    <Link href={`/tournament/${tournament.id}`} key={tournament.id}>
       <Card className="hover:shadow-lg transition-all duration-200">
         <CardHeader>
           <CardTitle className="text-lg">{tournament.name}</CardTitle>
