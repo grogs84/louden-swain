@@ -17,7 +17,7 @@ export default function Layout({ children }: LayoutProps) {
             {/* Logo */}
             <div className="flex-shrink-0">
               <Link href="/" className="text-2xl font-bold text-primary-500">
-                Louden Swain
+                Mat IQ
               </Link>
             </div>
             

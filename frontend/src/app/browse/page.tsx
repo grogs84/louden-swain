@@ -41,7 +41,7 @@ function BrowseContent() {
   const { data, title, icon } = getDataForType();
 
   const renderWrestlerCard = (wrestler: Wrestler) => (
-    <Link key={wrestler.id} href={`/profile/${wrestler.id}`}>
+    <Link href={`/profile/${wrestler.id}`} key={wrestler.id}>
       <Card className="hover:shadow-lg transition-all duration-200">
         <CardHeader>
           <div className="flex items-center space-x-4">
@@ -62,7 +62,6 @@ function BrowseContent() {
           <div className="flex justify-between text-sm">
             <span><strong>{wrestler.wins}</strong> W</span>
             <span><strong>{wrestler.losses}</strong> L</span>
-            <span className="text-primary-500">{wrestler.year}</span>
           </div>
         </CardContent>
       </Card>
@@ -70,7 +69,7 @@ function BrowseContent() {
   );
 
   const renderSchoolCard = (school: School) => (
-    <Link key={school.id} href={`/profile/${school.id}`}>
+    <Link href={`/profile/${school.id}`} key={school.id}>
       <Card className="hover:shadow-lg transition-all duration-200">
         <CardHeader>
           <CardTitle className="text-lg">{school.name}</CardTitle>
@@ -87,7 +86,7 @@ function BrowseContent() {
   );
 
   const renderCoachCard = (coach: Coach) => (
-    <Link key={coach.id} href={`/profile/${coach.id}`}>
+    <Link href={`/profile/${coach.id}`} key={coach.id}>
       <Card className="hover:shadow-lg transition-all duration-200">
         <CardHeader>
           <CardTitle className="text-lg">{coach.name}</CardTitle>
@@ -103,7 +102,7 @@ function BrowseContent() {
   );
 
   const renderTournamentCard = (tournament: Tournament) => (
-    <Link key={tournament.id} href={`/tournament/${tournament.id}`}>
+    <Link href={`/tournament/${tournament.id}`} key={tournament.id}>
       <Card className="hover:shadow-lg transition-all duration-200">
         <CardHeader>
           <CardTitle className="text-lg">{tournament.name}</CardTitle>
@@ -173,7 +172,11 @@ function BrowseContent() {
 
       {/* Results Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {data.map(renderCard)}
+        {data.map((item) => (
+          <div key={item.id}>
+            {renderCard(item)}
+          </div>
+        ))}
       </div>
 
       {/* Empty State */}
