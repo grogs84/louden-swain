@@ -220,3 +220,4 @@ dist/
 
 # Environment files
 .env.local
+.vercel
