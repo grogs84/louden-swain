@@ -19,10 +19,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-          cache: 'npm'
 
-      - name: Install dependencies
-        run: npm install --legacy-peer-deps
+      - name: Install frontend dependencies
+        run: cd frontend && npm install --legacy-peer-deps
 
       - name: Run frontend linting
         run: cd frontend && npm run lint
@@ -65,7 +64,7 @@ jobs:
       - name: Run backend tests
         run: cd backend && python -m pytest -v
         env:
-          DATABASE_URL: sqlite:///./test.db
+          DATABASE_URL: sqlite+aiosqlite:///./test.db
 
   security-scan:
     runs-on: ubuntu-latest
@@ -75,8 +74,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Setup Node.js for frontend audit
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install frontend dependencies for audit
+        run: cd frontend && npm install --legacy-peer-deps
+
       - name: Run npm audit for frontend
-        run: npm audit --audit-level=high --production
+        run: cd frontend && npm audit --audit-level=high --production
         continue-on-error: true
 
       - name: Setup Python for backend security scan
@@ -86,6 +93,7 @@ jobs:
 
       - name: Install safety for Python security scan
         run: pip install safety
+        continue-on-error: true
 
       - name: Run Python security scan
         run: cd backend && safety check -r requirements.txt
