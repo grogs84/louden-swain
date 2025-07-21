@@ -6,6 +6,11 @@ on:
   # Enable manual deployment
   workflow_dispatch:
 
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
 jobs:
   quality-gates:
     runs-on: ubuntu-latest
