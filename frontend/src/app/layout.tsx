@@ -4,7 +4,7 @@ import Layout from '@/components/ui/layout'
 import '@/styles/globals.css'
 
 export const metadata: Metadata = {
-  title: 'Louden Swain Wrestling Platform',
+  title: 'NCAA Wrestling Hub',
   description: 'NCAA D1 Wrestling Championship Data Platform',
   keywords: ['wrestling', 'ncaa', 'tournament', 'brackets'],
 }

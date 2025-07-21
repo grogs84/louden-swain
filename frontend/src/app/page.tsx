@@ -52,7 +52,7 @@ export default function HomePage() {
       <section className="text-center space-y-8">
         <div className="space-y-4">
           <h1 className="text-4xl md:text-6xl font-bold text-foreground">
-            Louden Swain
+            NCAA Wrestling Hub
           </h1>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
             Your comprehensive NCAA D1 Wrestling Championship data platform. 
@@ -83,9 +83,6 @@ export default function HomePage() {
                   <CardDescription>{card.description}</CardDescription>
                 </CardHeader>
                 <CardContent className="text-center">
-                  <div className="text-2xl font-bold text-primary-500 mb-2">
-                    {card.count}+
-                  </div>
                   <Button variant="outline" className="w-full">
                     Explore
                   </Button>
@@ -126,7 +123,6 @@ export default function HomePage() {
                   <div className="flex justify-between text-sm">
                     <span><strong>{wrestler.wins}</strong> Wins</span>
                     <span><strong>{wrestler.losses}</strong> Losses</span>
-                    <span className="text-primary-500 font-medium">{wrestler.year}</span>
                   </div>
                 </CardContent>
               </Card>
