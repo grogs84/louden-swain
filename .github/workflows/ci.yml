@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, test, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
+
+    # Frontend Tests
+    - name: Install frontend dependencies
+      run: cd frontend && npm install --legacy-peer-deps
+
+    - name: Lint frontend
+      run: cd frontend && npm run lint
+
+    - name: Type check frontend
+      run: cd frontend && npm run type-check
+
+    - name: Build frontend
+      run: cd frontend && npm run build
+
+    # Backend Tests
+    - name: Install backend dependencies
+      run: cd backend && pip install -r requirements.txt
+
+    - name: Lint backend with flake8
+      run: cd backend && flake8 app/ --count --select=E9,F63,F7,F82 --show-source --statistics
+
+    - name: Format check with black
+      run: cd backend && black --check app/
+
+    - name: Security check
+      run: cd frontend && npm audit --audit-level moderate
