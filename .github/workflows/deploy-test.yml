@@ -101,7 +101,10 @@ jobs:
       - name: Deploy to Railway
         run: |
           cd backend
-          railway up --service=backend --detach
+          # Create project if it doesn't exist or link to existing one
+          railway login --token $RAILWAY_TOKEN
+          railway link ${{ secrets.RAILWAY_PROJECT_ID }} || railway create --name backend-test
+          railway up --detach
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 
