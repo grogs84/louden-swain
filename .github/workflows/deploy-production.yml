@@ -95,13 +95,12 @@ jobs:
           curl -fsSL https://railway.app/install.sh | sh
           echo "$HOME/.railway/bin" >> $GITHUB_PATH
 
-      - name: Deploy Backend to Railway
+      - name: Deploy to Railway
         run: |
           cd backend
           railway up --service=backend --detach
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-        id: deploy-backend
 
       - name: Comment deployment URL on PR
         uses: actions/github-script@v7
