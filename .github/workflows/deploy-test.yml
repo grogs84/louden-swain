@@ -101,8 +101,8 @@ jobs:
       - name: Deploy to Railway
         run: |
           cd backend
-          # The RAILWAY_TOKEN environment variable is automatically used for authentication
-          railway link ${{ secrets.RAILWAY_PROJECT_ID }} || railway create --name backend-test
+          # Link to the Railway project (fail if not set up)
+          railway link ${{ secrets.RAILWAY_PROJECT_ID }}
           railway up --detach
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
