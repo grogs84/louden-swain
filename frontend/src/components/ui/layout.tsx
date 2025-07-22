@@ -30,9 +30,6 @@ export default function Layout({ children }: LayoutProps) {
                 <Link href="/browse" className="text-gray-900 hover:text-primary-500 px-3 py-2 text-sm font-medium">
                   Browse
                 </Link>
-                <Link href="/tournament/1" className="text-gray-900 hover:text-primary-500 px-3 py-2 text-sm font-medium">
-                  Tournaments
-                </Link>
               </div>
             </div>
             
