@@ -7,6 +7,11 @@ import { Button } from '@/components/ui/button';
 import { getSearchSuggestions, SearchAPIError } from '@/api/search';
 import { SearchSuggestion } from '@/types/search';
 
+// Utility function to convert text to title case
+const toTitleCase = (str: string): string => {
+  return str.toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase());
+};
+
 interface EnhancedSearchBarProps {
   placeholder?: string;
   defaultValue?: string;
@@ -80,7 +85,7 @@ export default function EnhancedSearchBar({
       case 'Enter':
         e.preventDefault();
         if (selectedIndex >= 0 && selectedIndex < suggestions.length) {
-          handleSuggestionSelect(suggestions[selectedIndex].text);
+          handleSuggestionSelect(suggestions[selectedIndex].text, suggestions[selectedIndex].type);
         } else {
           handleSubmit();
         }
@@ -110,17 +115,32 @@ export default function EnhancedSearchBar({
     }
   };
 
-  // Handle suggestion selection
-  const handleSuggestionSelect = (suggestionText: string) => {
+  // Handle suggestion selection - go directly to filtered search results
+  const handleSuggestionSelect = (suggestionText: string, suggestionType: string) => {
     setQuery(suggestionText);
     setShowSuggestionsDropdown(false);
     setSelectedIndex(-1);
     
-    if (onSearch) {
-      onSearch(suggestionText);
-    } else {
-      const params = new URLSearchParams({ q: suggestionText });
-      router.push(`/search?${params.toString()}`);
+    // Navigate to search results with specific filters and exact text match
+    // This will help users find the specific entity they're looking for
+    const exactQuery = encodeURIComponent(suggestionText);
+    
+    switch (suggestionType) {
+      case 'wrestler':
+        // For wrestlers, go to search results filtered by wrestler type with exact name
+        router.push(`/search?q=${exactQuery}&type=wrestler`);
+        break;
+      case 'school':
+        // For schools, go to search results filtered by school type  
+        router.push(`/search?q=${exactQuery}&type=school`);
+        break;
+      case 'tournament':
+        // For tournaments, go to search results filtered by tournament type
+        router.push(`/search?q=${exactQuery}&type=tournament`);
+        break;
+      default:
+        // Default behavior - go to general search
+        router.push(`/search?q=${exactQuery}`);
     }
   };
 
@@ -193,7 +213,7 @@ export default function EnhancedSearchBar({
               <button
                 key={`${suggestion.type}-${suggestion.text}`}
                 type="button"
-                onClick={() => handleSuggestionSelect(suggestion.text)}
+                onClick={() => handleSuggestionSelect(suggestion.text, suggestion.type)}
                 className={`w-full text-left px-4 py-3 hover:bg-gray-50 border-b border-gray-100 last:border-b-0 flex items-center space-x-3 ${
                   index === selectedIndex ? 'bg-blue-50 border-blue-200' : ''
                 }`}
@@ -204,10 +224,10 @@ export default function EnhancedSearchBar({
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium text-gray-900 truncate">
-                      {suggestion.text}
+                      {toTitleCase(suggestion.text)}
                     </span>
                     <span className="text-xs text-gray-500 ml-2">
-                      {suggestion.type}
+                      {toTitleCase(suggestion.type)}
                     </span>
                   </div>
                   {suggestion.count && suggestion.count > 1 && (

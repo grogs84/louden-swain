@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { searchAPI, SearchAPIError } from '@/api/search';
 import { SearchResponse, SearchFilters } from '@/types/search';
@@ -8,7 +8,7 @@ import SearchResultCard from '@/components/search/SearchResultCard';
 import SearchFiltersComponent from '@/components/search/SearchFilters';
 import { Button } from '@/components/ui/button';
 
-export default function SearchResultsPage() {
+function SearchPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   
@@ -223,5 +223,13 @@ export default function SearchResultsPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function SearchResultsPage() {
+  return (
+    <Suspense fallback={<div className="flex justify-center py-8">Loading search...</div>}>
+      <SearchPageContent />
+    </Suspense>
   );
 }

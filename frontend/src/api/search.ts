@@ -29,8 +29,8 @@ export async function searchAPI(
   }
 
   try {
-    // Use mock endpoint for demonstration
-    const response = await fetch(`${API_BASE_URL}/api/search/mock?${params}`, {
+    // Use real search endpoint
+    const response = await fetch(`${API_BASE_URL}/api/search?${params}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -64,8 +64,8 @@ export async function getSearchSuggestions(
   });
 
   try {
-    // Use mock endpoint for demonstration
-    const response = await fetch(`${API_BASE_URL}/api/search/suggestions/mock?${params}`, {
+    // Use real suggestions endpoint
+    const response = await fetch(`${API_BASE_URL}/api/search/suggestions?${params}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -88,21 +88,6 @@ export async function getSearchSuggestions(
     throw new SearchAPIError('Network error occurred while getting suggestions');
   }
 }
-
-// Debounced version of getSearchSuggestions for real-time autocomplete
-export function debounce<T extends (...args: unknown[]) => unknown>(
-  func: T,
-  delay: number
-): (...args: Parameters<T>) => void {
-  let timeoutId: NodeJS.Timeout;
-  
-  return (...args: Parameters<T>): void => {
-    clearTimeout(timeoutId);
-    timeoutId = setTimeout(() => func(...args), delay);
-  };
-}
-
-export const getDebouncedSearchSuggestions = debounce(getSearchSuggestions, 300);
 
 // Helper function to get result link based on type
 export function getResultLink(result: { type: string; id: string }): string {

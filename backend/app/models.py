@@ -166,6 +166,7 @@ class SchoolStats(BaseModel):
 # Enhanced search models for core search functionality
 class SearchResult(BaseModel):
     """Enhanced search result with relevance scoring and metadata"""
+
     id: str
     type: str  # "wrestler", "school", "tournament", "match"
     title: str
@@ -176,6 +177,7 @@ class SearchResult(BaseModel):
 
 class SearchResponse(BaseModel):
     """Enhanced search response with pagination and total count"""
+
     query: str
     total_count: int
     results: List[SearchResult] = []
@@ -185,6 +187,7 @@ class SearchResponse(BaseModel):
 
 class SearchSuggestion(BaseModel):
     """Search suggestion for autocomplete"""
+
     text: str
     type: str  # "wrestler", "school", "tournament"
     count: Optional[int] = None  # Number of results for this suggestion
@@ -192,6 +195,7 @@ class SearchSuggestion(BaseModel):
 
 class SearchSuggestionsResponse(BaseModel):
     """Response for search suggestions endpoint"""
+
     query: str
     suggestions: List[SearchSuggestion] = []
 

@@ -4,6 +4,12 @@ import Link from 'next/link';
 import { SearchResult } from '@/types/search';
 import { getResultLink, formatResultType } from '@/api/search';
 
+// Utility function to convert text to title case
+const toTitleCase = (str: string): string => {
+  if (!str) return str;
+  return str.toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase());
+};
+
 interface SearchResultCardProps {
   result: SearchResult;
   onSelect?: (result: SearchResult) => void;
@@ -42,10 +48,10 @@ export default function SearchResultCard({ result, onSelect }: SearchResultCardP
     const { metadata } = result;
     const items = [];
     
-    if (metadata.school) items.push(`School: ${metadata.school}`);
+    if (metadata.school) items.push(`School: ${toTitleCase(metadata.school.toString())}`);
     if (metadata.weight_class) items.push(`Weight: ${metadata.weight_class} lbs`);
     if (metadata.year) items.push(`Year: ${metadata.year}`);
-    if (metadata.location) items.push(`Location: ${metadata.location}`);
+    if (metadata.location) items.push(`Location: ${toTitleCase(metadata.location.toString())}`);
     if (metadata.record) items.push(`Record: ${metadata.record}`);
     if (metadata.ranking) items.push(`Rank: #${metadata.ranking}`);
     
@@ -68,7 +74,7 @@ export default function SearchResultCard({ result, onSelect }: SearchResultCardP
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between mb-1">
             <h3 className="text-lg font-semibold text-gray-900 truncate group-hover:text-blue-600">
-              {result.title}
+              {toTitleCase(result.title)}
             </h3>
             
             {/* Relevance Score */}
@@ -80,7 +86,7 @@ export default function SearchResultCard({ result, onSelect }: SearchResultCardP
           {/* Subtitle */}
           {result.subtitle && (
             <p className="text-sm text-gray-600 mb-2">
-              {result.subtitle}
+              {toTitleCase(result.subtitle)}
             </p>
           )}
           
