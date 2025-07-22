@@ -101,8 +101,7 @@ jobs:
       - name: Deploy to Railway
         run: |
           cd backend
-          # Link to the Railway project (fail if not set up)
-          railway link ${{ secrets.RAILWAY_PROJECT_ID }}
+          railway init --project=${{ secrets.RAILWAY_PROJECT_ID }} --yes
           railway up --detach
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
