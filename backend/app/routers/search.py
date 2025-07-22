@@ -1,23 +1,315 @@
 """
 Search API endpoints
 """
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query
 
 from ..database import Database, get_db
-from ..models import SearchResponse, SearchResult, WrestlerSearchResult
+from ..models import (
+    SearchResponse, 
+    SearchResult, 
+    WrestlerSearchResult, 
+    LegacySearchResponse, 
+    LegacySearchResult,
+    SearchSuggestionsResponse,
+    SearchSuggestion
+)
 
 router = APIRouter()
 
 
 @router.get("/search", response_model=SearchResponse)
-async def search_all(
+async def search_enhanced(
+    q: str = Query(..., min_length=2, description="Search query"),
+    offset: int = Query(0, ge=0, description="Pagination offset"),
+    limit: int = Query(20, le=100, description="Maximum results per page"),
+    type_filter: Optional[str] = Query(None, description="Filter by type: wrestler, school, tournament, match"),
+    db: Database = Depends(get_db),
+):
+    """Enhanced universal search with relevance scoring and pagination"""
+    
+    def calculate_relevance_score(text: str, query: str) -> float:
+        """Calculate relevance score based on match quality"""
+        if not text or not query:
+            return 0.0
+        
+        text_lower = text.lower()
+        query_lower = query.lower()
+        
+        # Exact match
+        if text_lower == query_lower:
+            return 1.0
+        
+        # Starts with query
+        if text_lower.startswith(query_lower):
+            return 0.9
+        
+        # Contains as word (word boundary match)
+        import re
+        if re.search(r'\b' + re.escape(query_lower) + r'\b', text_lower):
+            return 0.8
+        
+        # Contains substring
+        if query_lower in text_lower:
+            return 0.7
+        
+        # Partial word matches
+        query_words = query_lower.split()
+        text_words = text_lower.split()
+        matches = sum(1 for qw in query_words for tw in text_words if qw in tw or tw in qw)
+        if matches > 0:
+            return 0.5 + (matches / (len(query_words) + len(text_words))) * 0.2
+        
+        return 0.0
+
+    all_results = []
+    
+    # Search wrestlers if no type filter or type is wrestler
+    if not type_filter or type_filter == "wrestler":
+        wrestler_query = """
+        WITH wrestler_latest AS (
+          SELECT DISTINCT ON (p.person_id)
+            p.person_id,
+            p.first_name,
+            p.last_name,
+            s.name as last_school,
+            part.year as last_year,
+            part.weight_class as last_weight_class
+          FROM person p
+          JOIN role r ON p.person_id = r.person_id
+          JOIN participant part ON r.role_id = part.role_id
+          JOIN school s ON part.school_id = s.school_id
+          WHERE r.role_type = 'wrestler'
+          ORDER BY p.person_id, part.year DESC
+        )
+        SELECT
+          person_id,
+          first_name,
+          last_name,
+          last_school,
+          last_year,
+          last_weight_class
+        FROM wrestler_latest
+        WHERE (first_name || ' ' || last_name) ILIKE $1
+           OR COALESCE(first_name, '') ILIKE $1
+           OR COALESCE(last_name, '') ILIKE $1
+           OR COALESCE(last_school, '') ILIKE $1
+        """
+        
+        wrestlers = await db.fetch_all(wrestler_query, f"%{q}%")
+        for w in wrestlers:
+            full_name = f"{w['first_name']} {w['last_name']}"
+            subtitle = f"{w['last_school']} - {w['last_weight_class']} lbs" if w['last_school'] and w['last_weight_class'] else w['last_school']
+            
+            relevance = max(
+                calculate_relevance_score(full_name, q),
+                calculate_relevance_score(w['first_name'], q),
+                calculate_relevance_score(w['last_name'], q),
+                calculate_relevance_score(w['last_school'] or "", q) * 0.8  # School matches less relevant
+            )
+            
+            if relevance > 0:
+                all_results.append(SearchResult(
+                    id=str(w['person_id']),
+                    type="wrestler",
+                    title=full_name,
+                    subtitle=subtitle,
+                    relevance_score=relevance,
+                    metadata={
+                        "school": w['last_school'],
+                        "weight_class": w['last_weight_class'],
+                        "year": w['last_year']
+                    }
+                ))
+
+    # Search schools if no type filter or type is school
+    if not type_filter or type_filter == "school":
+        school_query = """
+        SELECT
+            school_id,
+            name,
+            location,
+            mascot
+        FROM school
+        WHERE name ILIKE $1 OR location ILIKE $1 OR mascot ILIKE $1
+        """
+        
+        schools = await db.fetch_all(school_query, f"%{q}%")
+        for s in schools:
+            relevance = max(
+                calculate_relevance_score(s['name'], q),
+                calculate_relevance_score(s['location'] or "", q) * 0.7,
+                calculate_relevance_score(s['mascot'] or "", q) * 0.6
+            )
+            
+            if relevance > 0:
+                all_results.append(SearchResult(
+                    id=str(s['school_id']),
+                    type="school",
+                    title=s['name'],
+                    subtitle=s['location'],
+                    relevance_score=relevance,
+                    metadata={
+                        "location": s['location'],
+                        "mascot": s['mascot']
+                    }
+                ))
+
+    # Search tournaments if no type filter or type is tournament
+    if not type_filter or type_filter == "tournament":
+        tournament_query = """
+        SELECT
+            tournament_id,
+            name,
+            year,
+            location,
+            date
+        FROM tournament
+        WHERE name ILIKE $1 OR location ILIKE $1
+        ORDER BY year DESC
+        """
+        
+        tournaments = await db.fetch_all(tournament_query, f"%{q}%")
+        for t in tournaments:
+            subtitle = f"{t['year']} - {t['location']}" if t['year'] and t['location'] else str(t['year'] or t['location'] or "")
+            
+            relevance = max(
+                calculate_relevance_score(t['name'], q),
+                calculate_relevance_score(t['location'] or "", q) * 0.7
+            )
+            
+            if relevance > 0:
+                all_results.append(SearchResult(
+                    id=str(t['tournament_id']),
+                    type="tournament",
+                    title=t['name'],
+                    subtitle=subtitle,
+                    relevance_score=relevance,
+                    metadata={
+                        "year": t['year'],
+                        "location": t['location'],
+                        "date": str(t['date']) if t['date'] else None
+                    }
+                ))
+
+    # Sort by relevance score (descending) then by title
+    all_results.sort(key=lambda x: (-x.relevance_score, x.title))
+    
+    # Apply pagination
+    total_count = len(all_results)
+    paginated_results = all_results[offset:offset + limit]
+
+    return SearchResponse(
+        query=q,
+        total_count=total_count,
+        results=paginated_results,
+        offset=offset,
+        limit=limit
+    )
+
+
+@router.get("/search/suggestions", response_model=SearchSuggestionsResponse)
+async def search_suggestions(
+    q: str = Query(..., min_length=1, description="Partial search query"),
+    limit: int = Query(10, le=20, description="Maximum suggestions"),
+    db: Database = Depends(get_db),
+):
+    """Get search suggestions for autocomplete"""
+    
+    suggestions = []
+    
+    # Get wrestler name suggestions
+    wrestler_query = """
+    SELECT DISTINCT
+        p.first_name || ' ' || p.last_name as name,
+        COUNT(*) as count
+    FROM person p
+    JOIN role r ON p.person_id = r.person_id
+    WHERE r.role_type = 'wrestler'
+      AND (p.first_name ILIKE $1 OR p.last_name ILIKE $1 
+           OR (p.first_name || ' ' || p.last_name) ILIKE $1)
+    GROUP BY p.first_name, p.last_name
+    ORDER BY count DESC, name
+    LIMIT $2
+    """
+    
+    wrestlers = await db.fetch_all(wrestler_query, f"%{q}%", limit // 2)
+    for w in wrestlers:
+        suggestions.append(SearchSuggestion(
+            text=w['name'],
+            type="wrestler",
+            count=w['count']
+        ))
+    
+    # Get school name suggestions
+    school_query = """
+    SELECT DISTINCT
+        name,
+        1 as count
+    FROM school
+    WHERE name ILIKE $1
+    ORDER BY name
+    LIMIT $2
+    """
+    
+    schools = await db.fetch_all(school_query, f"%{q}%", limit // 2)
+    for s in schools:
+        suggestions.append(SearchSuggestion(
+            text=s['name'],
+            type="school",
+            count=s['count']
+        ))
+    
+    # Get tournament name suggestions
+    tournament_query = """
+    SELECT DISTINCT
+        name,
+        COUNT(*) as count
+    FROM tournament
+    WHERE name ILIKE $1
+    GROUP BY name
+    ORDER BY count DESC, name
+    LIMIT $2
+    """
+    
+    tournaments = await db.fetch_all(tournament_query, f"%{q}%", max(1, limit - len(suggestions)))
+    for t in tournaments:
+        suggestions.append(SearchSuggestion(
+            text=t['name'],
+            type="tournament",
+            count=t['count']
+        ))
+    
+    # Sort suggestions by relevance (exact matches first, then by count)
+    def suggestion_relevance(suggestion):
+        text_lower = suggestion.text.lower()
+        query_lower = q.lower()
+        
+        if text_lower.startswith(query_lower):
+            return (2, suggestion.count or 0)
+        elif query_lower in text_lower:
+            return (1, suggestion.count or 0)
+        else:
+            return (0, suggestion.count or 0)
+    
+    suggestions.sort(key=suggestion_relevance, reverse=True)
+    
+    return SearchSuggestionsResponse(
+        query=q,
+        suggestions=suggestions[:limit]
+    )
+
+
+@router.get("/search/legacy", response_model=LegacySearchResponse)
+async def search_legacy(
     q: str = Query(..., min_length=2, description="Search query"),
     limit: int = Query(10, le=50, description="Maximum results per category"),
     db: Database = Depends(get_db),
 ):
-    """Universal search across wrestlers, schools, and tournaments"""
+    """Legacy universal search endpoint for backward compatibility"""
+
+    """Legacy universal search endpoint for backward compatibility"""
 
     # Search wrestlers
     wrestler_query = """
@@ -38,7 +330,7 @@ async def search_all(
 
     wrestlers = await db.fetch_all(wrestler_query, f"%{q}%", limit)
     wrestler_results = [
-        SearchResult(
+        LegacySearchResult(
             type="wrestler",
             id=w["id"],
             name=w["name"],
@@ -61,7 +353,7 @@ async def search_all(
 
     schools = await db.fetch_all(school_query, f"%{q}%", limit)
     school_results = [
-        SearchResult(
+        LegacySearchResult(
             type="school",
             id=s["id"],
             name=s["name"],
@@ -84,7 +376,7 @@ async def search_all(
 
     tournaments = await db.fetch_all(tournament_query, f"%{q}%", limit)
     tournament_results = [
-        SearchResult(
+        LegacySearchResult(
             type="tournament",
             id=t["id"],
             name=t["name"],
@@ -93,7 +385,7 @@ async def search_all(
         for t in tournaments
     ]
 
-    return SearchResponse(
+    return LegacySearchResponse(
         query=q,
         wrestlers=wrestler_results,
         schools=school_results,
@@ -153,7 +445,7 @@ async def search_wrestlers(
     ]
 
 
-@router.get("/search/schools", response_model=List[SearchResult])
+@router.get("/search/schools", response_model=List[LegacySearchResult])
 async def search_schools(
     q: str = Query(..., min_length=2, description="Search query"),
     limit: int = Query(20, le=100, description="Maximum results"),
@@ -173,7 +465,7 @@ async def search_schools(
 
     schools = await db.fetch_all(query, f"%{q}%", limit)
     return [
-        SearchResult(
+        LegacySearchResult(
             type="school",
             id=s["id"],
             name=s["name"],

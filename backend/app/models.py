@@ -163,19 +163,52 @@ class SchoolStats(BaseModel):
     win_percentage: float = 0.0
 
 
-# Search models for MVP
+# Enhanced search models for core search functionality
 class SearchResult(BaseModel):
+    """Enhanced search result with relevance scoring and metadata"""
+    id: str
+    type: str  # "wrestler", "school", "tournament", "match"
+    title: str
+    subtitle: Optional[str] = None
+    relevance_score: float
+    metadata: Optional[dict] = None
+
+
+class SearchResponse(BaseModel):
+    """Enhanced search response with pagination and total count"""
+    query: str
+    total_count: int
+    results: List[SearchResult] = []
+    offset: int = 0
+    limit: int = 20
+
+
+class SearchSuggestion(BaseModel):
+    """Search suggestion for autocomplete"""
+    text: str
+    type: str  # "wrestler", "school", "tournament"
+    count: Optional[int] = None  # Number of results for this suggestion
+
+
+class SearchSuggestionsResponse(BaseModel):
+    """Response for search suggestions endpoint"""
+    query: str
+    suggestions: List[SearchSuggestion] = []
+
+
+# Legacy search response for backward compatibility
+class LegacySearchResult(BaseModel):
     type: str  # "wrestler", "school", "tournament"
     id: str
     name: str
     additional_info: Optional[str] = None
 
 
-class SearchResponse(BaseModel):
+class LegacySearchResponse(BaseModel):
     query: str
-    wrestlers: List[SearchResult] = []
-    schools: List[SearchResult] = []
-    tournaments: List[SearchResult] = []
+    wrestlers: List[LegacySearchResult] = []
+    schools: List[LegacySearchResult] = []
+    tournaments: List[LegacySearchResult] = []
 
 
 class WrestlerSearchResult(BaseModel):
