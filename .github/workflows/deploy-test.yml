@@ -77,6 +77,11 @@ jobs:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_TEST }}
 
+      - name: Set Vercel Environment Variable for API URL
+        run: |
+          # Set the Railway backend URL for frontend to use
+          echo "NEXT_PUBLIC_API_URL=https://backend-test.up.railway.app" >> frontend/.env.production
+
       - name: Build Project Artifacts
         run: vercel build --token=${{ secrets.VERCEL_TOKEN }} --cwd frontend
 

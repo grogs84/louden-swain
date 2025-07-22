@@ -33,7 +33,13 @@ class Settings(BaseSettings):
     api_description: str = "NCAA D1 Wrestling Championship data platform"
 
     # CORS
-    cors_origins: list = ["http://localhost:3000", "http://127.0.0.1:3000"]
+    cors_origins: list = [
+        "http://localhost:3000", 
+        "http://127.0.0.1:3000",
+        "https://louden-swain.vercel.app",  # Production Vercel
+        "https://louden-swain-*.vercel.app",  # Preview deployments
+        "https://*.vercel.app",  # All Vercel deployments for this project
+    ]
 
     class Config:
         env_file = ".env"
