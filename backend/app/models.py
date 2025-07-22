@@ -2,9 +2,11 @@
 Pydantic models for API request/response validation
 Aligned with Supabase schema using TEXT IDs
 """
-from pydantic import BaseModel
-from typing import Optional, List
 from datetime import date
+from typing import List, Optional
+
+from pydantic import BaseModel
+
 
 # Base models matching Supabase schema
 class PersonBase(BaseModel):
@@ -15,8 +17,10 @@ class PersonBase(BaseModel):
     city_of_origin: Optional[str] = None
     state_of_origin: Optional[str] = None
 
+
 class RoleBase(BaseModel):
     role_type: str  # "wrestler" or "coach"
+
 
 class SchoolBase(BaseModel):
     name: str
@@ -25,37 +29,43 @@ class SchoolBase(BaseModel):
     school_type: Optional[str] = None
     school_url: Optional[str] = None
 
+
 class TournamentBase(BaseModel):
     name: str
     date: date
     year: Optional[int] = None
     location: Optional[str] = None
 
+
 # Response models with TEXT IDs
 class Person(PersonBase):
     person_id: str
-    
+
     class Config:
         from_attributes = True
+
 
 class Role(RoleBase):
     role_id: str
     person_id: str
-    
+
     class Config:
         from_attributes = True
+
 
 class School(SchoolBase):
     school_id: str
-    
+
     class Config:
         from_attributes = True
 
+
 class Tournament(TournamentBase):
     tournament_id: str
-    
+
     class Config:
         from_attributes = True
+
 
 class Participant(BaseModel):
     participant_id: str
@@ -64,9 +74,10 @@ class Participant(BaseModel):
     year: int
     weight_class: str
     seed: Optional[int] = None
-    
+
     class Config:
         from_attributes = True
+
 
 class Match(BaseModel):
     match_id: str
@@ -78,9 +89,10 @@ class Match(BaseModel):
     fall_time: Optional[str] = None
     tech_time: Optional[str] = None
     winner_id: Optional[str] = None
-    
+
     class Config:
         from_attributes = True
+
 
 class ParticipantMatch(BaseModel):
     match_id: str
@@ -88,9 +100,10 @@ class ParticipantMatch(BaseModel):
     is_winner: Optional[bool] = None
     score: Optional[int] = None
     next_match_id: Optional[str] = None
-    
+
     class Config:
         from_attributes = True
+
 
 # Enhanced response models for MVP features
 class WrestlerProfile(BaseModel):
@@ -103,6 +116,7 @@ class WrestlerProfile(BaseModel):
     state_of_origin: Optional[str] = None
     role_id: Optional[str] = None
 
+
 class WrestlerStats(BaseModel):
     person_id: str
     total_matches: int = 0
@@ -112,6 +126,7 @@ class WrestlerStats(BaseModel):
     tech_falls: int = 0
     major_decisions: int = 0
     win_percentage: float = 0.0
+
 
 class WrestlerMatch(BaseModel):
     match_id: str
@@ -126,6 +141,7 @@ class WrestlerMatch(BaseModel):
     year: int
     weight_class: Optional[str] = None
 
+
 class SchoolProfile(BaseModel):
     school_id: str
     name: str
@@ -133,6 +149,7 @@ class SchoolProfile(BaseModel):
     mascot: Optional[str] = None
     school_type: Optional[str] = None
     school_url: Optional[str] = None
+
 
 class SchoolStats(BaseModel):
     school_id: str
@@ -145,6 +162,7 @@ class SchoolStats(BaseModel):
     last_year: Optional[int] = None
     win_percentage: float = 0.0
 
+
 # Search models for MVP
 class SearchResult(BaseModel):
     type: str  # "wrestler", "school", "tournament"
@@ -152,20 +170,23 @@ class SearchResult(BaseModel):
     name: str
     additional_info: Optional[str] = None
 
+
 class SearchResponse(BaseModel):
     query: str
     wrestlers: List[SearchResult] = []
     schools: List[SearchResult] = []
     tournaments: List[SearchResult] = []
 
+
 class WrestlerSearchResult(BaseModel):
     """Search result with disambiguation hints for wrestlers with common names"""
+
     person_id: str
     first_name: str
     last_name: str
     last_school: Optional[str] = None
     last_year: Optional[int] = None
     last_weight_class: Optional[str] = None
-    
+
     class Config:
         from_attributes = True

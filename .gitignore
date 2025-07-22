@@ -14,7 +14,9 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+# Python lib directory (backend)
+backend/lib/
+backend/lib64/
 lib64/
 parts/
 sdist/
@@ -206,7 +208,6 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 node_modules/
-package-lock.json
 
 # Next.js
 .next/
