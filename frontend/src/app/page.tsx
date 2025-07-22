@@ -4,25 +4,11 @@ import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import EnhancedSearchBar from '@/components/search/EnhancedSearchBar';
-import { SearchFilters } from '@/types';
 import { mockWrestlers } from '@/lib/mock-data';
-import { useRouter } from 'next/navigation';
-import { SearchResult } from '@/types/search';
 
 const HERO_TITLE = "D1 NCAA Wrestling Championship Data Hub";
 
 export default function HomePage() {
-  const router = useRouter();
-  
-  const handleSearch = async (query: string) => {
-    // Redirect to search results page
-    const params = new URLSearchParams({
-      q: query,
-    });
-    
-    router.push(`/search?${params.toString()}`);
-  };
-
   const browseCards = [
     {
       title: 'Browse Wrestlers',
@@ -68,7 +54,10 @@ export default function HomePage() {
         
         {/* Search Interface */}
         <div className="max-w-4xl mx-auto">
-          <EnhancedSearchBar onSearch={handleSearch} />
+          <EnhancedSearchBar 
+            placeholder="Search wrestlers, schools, tournaments..."
+            autoFocus={true}
+          />
         </div>
       </section>
 
