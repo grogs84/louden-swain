@@ -22,8 +22,7 @@ interface EnhancedSearchBarProps {
 
 export default function EnhancedSearchBar({ 
   onSearch, 
-  placeholder = "Search wrestlers, schools, coaches...",
-  showResults = false 
+  placeholder = "Search wrestlers, schools, coaches..."
 }: EnhancedSearchBarProps) {
   const [query, setQuery] = useState('');
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
@@ -91,7 +90,7 @@ export default function EnhancedSearchBar({
     setIsLoading(true);
     try {
       const results = await searchAPI(query, { 
-        type: filters.entityType === 'all' ? undefined : filters.entityType as any,
+        type: filters.entityType === 'all' ? undefined : filters.entityType as 'wrestler' | 'school' | 'tournament' | 'match',
         limit: 20,
         offset: 0 
       });
@@ -192,7 +191,7 @@ export default function EnhancedSearchBar({
                 </label>
                 <select
                   value={filters.entityType}
-                  onChange={(e) => setFilters({ ...filters, entityType: e.target.value as any })}
+                  onChange={(e) => setFilters({ ...filters, entityType: e.target.value as 'wrestler' | 'school' | 'coach' | 'tournament' | 'all' })}
                   className="w-full border border-gray-300 rounded-md px-3 py-2"
                 >
                   <option value="all">All Categories</option>
@@ -274,7 +273,7 @@ export default function EnhancedSearchBar({
             {/* No Results */}
             {!isLoading && query.length >= 2 && suggestions.length === 0 && searchResults.length === 0 && (
               <div className="px-4 py-8 text-center text-gray-500">
-                <p>No suggestions or results found for "{query}"</p>
+                <p>No suggestions or results found for &quot;{query}&quot;</p>
               </div>
             )}
           </div>

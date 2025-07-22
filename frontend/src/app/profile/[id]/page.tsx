@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { mockWrestlers, mockSchools, mockCoaches, mockTournaments } from '@/lib/mock-data';
-import { Wrestler, School, Coach, Tournament } from '@/types';
+import { Wrestler, School, Coach } from '@/types';
 
 export default function ProfilePage() {
   const params = useParams();
