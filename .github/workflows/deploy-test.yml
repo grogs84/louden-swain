@@ -79,8 +79,8 @@ jobs:
 
       - name: Set Vercel Environment Variable for API URL
         run: |
-          # Set the Railway backend URL for frontend to use
-          echo "NEXT_PUBLIC_API_URL=https://backend-test.up.railway.app" >> frontend/.env.production
+          # Set your manually deployed Railway backend URL
+          echo "NEXT_PUBLIC_API_URL=https://your-backend-service.up.railway.app" >> frontend/.env.production
 
       - name: Build Project Artifacts
         run: vercel build --token=${{ secrets.VERCEL_TOKEN }} --cwd frontend
@@ -92,20 +92,6 @@ jobs:
       - name: Get deployment URL
         run: echo "DEPLOYMENT_URL=$(vercel ls --yes --token=${{ secrets.VERCEL_TOKEN }} | grep -E 'https://.*-.*vercel\.app' | head -1 | awk '{print $2}')" >> $GITHUB_ENV
 
-      # Deploy Backend to Railway
-      - name: Install Railway CLI
-        run: |
-          curl -fsSL https://railway.app/install.sh | sh
-          echo "$HOME/.railway/bin" >> $GITHUB_PATH
-
-      - name: Deploy to Railway
-        run: |
-          cd backend
-          railway init --project=${{ secrets.RAILWAY_PROJECT_ID }} --yes
-          railway up --detach
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-
       - name: Comment deployment URL
         uses: actions/github-script@v7
         if: github.event_name == 'push'
@@ -115,5 +101,5 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               commit_sha: context.sha,
-              body: '🚀 Test environment deployment successful!\n\n📱 Frontend: ${{ env.DEPLOYMENT_URL }}\n🔧 Backend: Deployed to Railway (test environment)'
+              body: '🚀 Test environment deployment successful!\n\n📱 Frontend: ${{ env.DEPLOYMENT_URL }}\n🔧 Backend: Manually deployed to Railway'
             })
