@@ -2,18 +2,95 @@ name: Deploy to Production
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
+  # Enable manual deployment
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  statuses: write
+  pull-requests: write
+  issues: write
 
 jobs:
-  deploy:
+  quality-gates:
     runs-on: ubuntu-latest
+    name: Quality Gates
+    
     steps:
-    - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Deploy to Vercel
-      uses: amondnet/vercel-action@v25
-      with:
-        vercel-token: ${{ secrets.VERCEL_TOKEN }}
-        vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-        vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-        vercel-args: '--prod'
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: cd frontend && npm install --legacy-peer-deps
+
+      - name: Run frontend linting
+        run: cd frontend && npm run lint
+
+      - name: Run frontend type checking
+        run: cd frontend && npm run type-check
+
+      - name: Build frontend
+        run: cd frontend && npm run build
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install backend dependencies
+        run: |
+          cd backend
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      - name: Run backend tests
+        run: cd backend && python -m pytest -v
+        env:
+          DATABASE_URL: sqlite+aiosqlite:///./test.db
+
+  deploy:
+    needs: quality-gates
+    runs-on: ubuntu-latest
+    name: Deploy to Vercel Production
+    environment: production
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Pull Vercel Environment Information
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }} --cwd frontend
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Build Project Artifacts
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }} --cwd frontend
+
+      - name: Deploy Project Artifacts to Vercel
+        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }} --cwd frontend
+        id: deploy
+
+      - name: Comment deployment URL on PR
+        uses: actions/github-script@v7
+        if: github.event_name == 'pull_request'
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '✅ Production deployment successful!\n\nDeployment URL: https://louden-swain.vercel.app'
+            })
