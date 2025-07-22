@@ -1,18 +1,7 @@
 """
 Tests for search functionality
 """
-from unittest.mock import AsyncMock, patch
-
 import pytest
-from fastapi.testclient import TestClient
-
-from app.main import app
-
-
-@pytest.fixture
-def client():
-    """Test client fixture"""
-    return TestClient(app)
 
 
 def test_health_endpoint(client):
@@ -22,7 +11,7 @@ def test_health_endpoint(client):
     assert response.json() == {"status": "healthy"}
 
 
-def test_search_endpoint_validation(client):
+def test_search_endpoint_validation(client, mock_db):
     """Test search endpoint input validation"""
     # Test missing query parameter
     response = client.get("/api/search")
@@ -32,42 +21,64 @@ def test_search_endpoint_validation(client):
     response = client.get("/api/search?q=a")
     assert response.status_code == 422
 
-    # Test valid query without database connection
+    # Test valid query with mocked database
+    mock_db.fetch_all.return_value = []
     response = client.get("/api/search?q=test")
-    # This will fail due to no database, but should not be a validation error
-    assert response.status_code == 500  # Internal server error due to no DB
+    assert response.status_code == 200
+
+    data = response.json()
+    assert data["query"] == "test"
+    assert "total_count" in data
+    assert "results" in data
 
 
-def test_search_suggestions_endpoint_validation(client):
+def test_search_suggestions_endpoint_validation(client, mock_db):
     """Test search suggestions endpoint input validation"""
     # Test missing query parameter
     response = client.get("/api/search/suggestions")
     assert response.status_code == 422
 
-    # Test valid query without database connection
+    # Test valid query with mocked database
+    mock_db.fetch_all.return_value = []
     response = client.get("/api/search/suggestions?q=test")
-    # This will fail due to no database, but should not be a validation error
-    assert response.status_code == 500  # Internal server error due to no DB
+    assert response.status_code == 200
+
+    data = response.json()
+    assert data["query"] == "test"
+    assert "suggestions" in data
 
 
-@patch("app.routers.search.get_db")
-def test_search_endpoint_with_mock_db(mock_get_db, client):
+def test_search_endpoint_with_mock_db(client, mock_db):
     """Test search endpoint with mocked database"""
-    # Mock database
-    mock_db = AsyncMock()
-    mock_get_db.return_value = mock_db
 
-    # Mock wrestler data
-    mock_db.fetch_all.return_value = [
-        {
-            "person_id": "1",
-            "first_name": "Spencer",
-            "last_name": "Lee",
-            "last_school": "Iowa",
-            "last_year": 2021,
-            "last_weight_class": "125",
-        }
-    ]
+    # Mock wrestler data - need to return different results for different queries
+    def mock_fetch_all(query, *args):
+        if "wrestler_latest" in query:
+            # Return wrestler data
+            return [
+                {
+                    "person_id": "1",
+                    "first_name": "Spencer",
+                    "last_name": "Lee",
+                    "last_school": "Iowa",
+                    "last_year": 2021,
+                    "last_weight_class": "125",
+                }
+            ]
+        elif "school" in query:
+            # Return school data
+            return [
+                {
+                    "school_id": "1",
+                    "name": "Iowa University",
+                    "location": "Iowa City, IA",
+                    "mascot": "Hawkeyes",
+                }
+            ]
+        else:
+            return []
+
+    mock_db.fetch_all.side_effect = mock_fetch_all
 
     response = client.get("/api/search?q=spencer")
     assert response.status_code == 200
@@ -80,14 +91,9 @@ def test_search_endpoint_with_mock_db(mock_get_db, client):
     assert "limit" in data
 
 
-@patch("app.routers.search.get_db")
-def test_search_suggestions_with_mock_db(mock_get_db, client):
+def test_search_suggestions_with_mock_db(client, mock_db):
     """Test search suggestions endpoint with mocked database"""
-    # Mock database
-    mock_db = AsyncMock()
-    mock_get_db.return_value = mock_db
-
-    # Mock suggestions data
+    # Mock suggestions data - the search suggestions endpoint makes multiple queries
     mock_db.fetch_all.side_effect = [
         [{"name": "Spencer Lee", "count": 1}],  # wrestlers
         [{"name": "Iowa", "count": 1}],  # schools
@@ -152,11 +158,71 @@ def test_search_relevance_scoring():
     assert calculate_relevance_score("Spencer Lee", "xyz") == 0.0
 
 
-def test_legacy_search_endpoint(client):
+def test_legacy_search_endpoint(client, mock_db):
     """Test legacy search endpoint for backward compatibility"""
+
+    # Mock legacy search data - need to return different results for different queries
+    def mock_fetch_all(query, *args):
+        if "role_type = 'wrestler'" in query:
+            # Return wrestler data with correct column names from SQL alias
+            return [
+                {
+                    "id": "1",  # SQL alias: p.person_id as id
+                    "name": "Test Wrestler",  # SQL alias: first_name || last_name
+                    "additional_info": "Test University",  # SQL alias: s.name
+                }
+            ]
+        elif "role_type = 'coach'" in query:
+            # Return coach data
+            return [
+                {
+                    "id": "2",
+                    "name": "Test Coach",
+                    "additional_info": "Test University",
+                }
+            ]
+        elif "school" in query and "role_type" not in query:
+            # Return school data
+            return [
+                {
+                    "id": "1",
+                    "name": "Test University",
+                    "additional_info": "Iowa City, IA",
+                }
+            ]
+        elif "tournament" in query:
+            # Return tournament data
+            return [
+                {
+                    "id": "1",
+                    "name": "Test Tournament",
+                    "additional_info": "2021",
+                }
+            ]
+        else:
+            return []
+
+    mock_db.fetch_all.side_effect = mock_fetch_all
+
     response = client.get("/api/search/legacy?q=test")
-    # Should fail due to no database but not due to validation
-    assert response.status_code == 500  # Internal server error due to no DB
+    assert response.status_code == 200
+
+    data = response.json()
+    assert isinstance(
+        data, dict
+    )  # Legacy endpoint returns a dict with categorized results
+    assert "wrestlers" in data
+    assert "schools" in data
+    assert "tournaments" in data
+    assert "query" in data
+
+    # Verify some results were found
+    assert len(data["wrestlers"]) > 0
+    assert len(data["schools"]) > 0
+    assert len(data["tournaments"]) > 0
+    assert data["wrestlers"][0]["type"] == "wrestler"
+    assert data["schools"][0]["type"] == "school"
+    assert data["tournaments"][0]["type"] == "tournament"
 
 
 if __name__ == "__main__":

@@ -2,14 +2,19 @@
 Test configuration and fixtures
 """
 import asyncio
+import os
 from typing import AsyncGenerator
+from unittest.mock import AsyncMock
 
 import pytest
 import pytest_asyncio
 from fastapi.testclient import TestClient
 from httpx import AsyncClient
 
-from src.main import app
+# Set test database URL before importing the app
+os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///./test.db"
+
+from app.main import app
 
 
 @pytest.fixture(scope="session")
@@ -21,9 +26,30 @@ def event_loop():
 
 
 @pytest.fixture
-def client():
-    """Test client for synchronous tests"""
-    return TestClient(app)
+def mock_db():
+    """Mock database for testing"""
+    db_mock = AsyncMock()
+    # Mock successful connection
+    db_mock.connect.return_value = None
+    return db_mock
+
+
+@pytest.fixture
+def client(mock_db):
+    """Test client for synchronous tests with mocked database"""
+    from app.database import get_db
+
+    # Override the dependency
+    def override_get_db():
+        return mock_db
+
+    app.dependency_overrides[get_db] = override_get_db
+
+    client = TestClient(app)
+    yield client
+
+    # Clean up
+    app.dependency_overrides.clear()
 
 
 @pytest_asyncio.fixture

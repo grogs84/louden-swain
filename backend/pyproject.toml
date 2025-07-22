@@ -28,6 +28,21 @@ ensure_newline_before_comments = true
 line_length = 88
 skip_glob = ["migrations/*"]
 
+[tool.flake8]
+max-line-length = 88
+exclude = [
+    ".git",
+    "__pycache__",
+    "venv",
+    ".venv",
+    "migrations",
+    ".eggs",
+    "*.egg",
+]
+per-file-ignores = [
+    "tests/conftest.py:E402",  # Allow module import after other statements for test setup
+]
+
 [tool.pytest.ini_options]
 minversion = "6.0"
 addopts = "-ra -q --strict-markers"
