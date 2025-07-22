@@ -29,7 +29,8 @@ export async function searchAPI(
   }
 
   try {
-    const response = await fetch(`${API_BASE_URL}/api/search?${params}`, {
+    // Use mock endpoint for demonstration
+    const response = await fetch(`${API_BASE_URL}/api/search/mock?${params}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -63,7 +64,8 @@ export async function getSearchSuggestions(
   });
 
   try {
-    const response = await fetch(`${API_BASE_URL}/api/search/suggestions?${params}`, {
+    // Use mock endpoint for demonstration
+    const response = await fetch(`${API_BASE_URL}/api/search/suggestions/mock?${params}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',

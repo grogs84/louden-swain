@@ -547,6 +547,180 @@ async def debug_wrestlers(db: Database = Depends(get_db)):
         return {"status": "error", "error": str(e)}
 
 
+@router.get("/search/mock", response_model=SearchResponse)
+async def search_mock(
+    q: str = Query(..., min_length=2, description="Search query"),
+    offset: int = Query(0, ge=0, description="Pagination offset"),
+    limit: int = Query(20, le=100, description="Maximum results per page"),
+    type_filter: Optional[str] = Query(None, description="Filter by type: wrestler, school, tournament, match"),
+):
+    """Mock search endpoint for testing without database"""
+    
+    # Mock data for demonstration
+    mock_wrestlers = [
+        {
+            "id": "1",
+            "type": "wrestler",
+            "title": "Spencer Lee",
+            "subtitle": "Iowa - 125 lbs",
+            "relevance_score": 0.95,
+            "metadata": {
+                "school": "Iowa",
+                "weight_class": "125",
+                "year": 2021,
+                "record": "24-0",
+                "ranking": 1
+            }
+        },
+        {
+            "id": "2", 
+            "type": "wrestler",
+            "title": "Roman Bravo-Young",
+            "subtitle": "Penn State - 133 lbs",
+            "relevance_score": 0.85,
+            "metadata": {
+                "school": "Penn State",
+                "weight_class": "133", 
+                "year": 2021,
+                "record": "23-2",
+                "ranking": 2
+            }
+        }
+    ]
+    
+    mock_schools = [
+        {
+            "id": "1",
+            "type": "school", 
+            "title": "Iowa Hawkeyes",
+            "subtitle": "Iowa City, IA",
+            "relevance_score": 0.90,
+            "metadata": {
+                "location": "Iowa City, IA",
+                "conference": "Big Ten",
+                "coach": "Tom Brands"
+            }
+        },
+        {
+            "id": "2",
+            "type": "school",
+            "title": "Penn State Nittany Lions", 
+            "subtitle": "University Park, PA",
+            "relevance_score": 0.80,
+            "metadata": {
+                "location": "University Park, PA",
+                "conference": "Big Ten",
+                "coach": "Cael Sanderson"
+            }
+        }
+    ]
+    
+    mock_tournaments = [
+        {
+            "id": "1",
+            "type": "tournament",
+            "title": "NCAA Division I Wrestling Championships",
+            "subtitle": "2024 - Philadelphia, PA", 
+            "relevance_score": 0.92,
+            "metadata": {
+                "year": 2024,
+                "location": "Philadelphia, PA",
+                "date": "2024-03-21"
+            }
+        },
+        {
+            "id": "2", 
+            "type": "tournament",
+            "title": "Big Ten Wrestling Championships",
+            "subtitle": "2024 - Minneapolis, MN",
+            "relevance_score": 0.75,
+            "metadata": {
+                "year": 2024,
+                "location": "Minneapolis, MN", 
+                "date": "2024-03-09"
+            }
+        }
+    ]
+    
+    # Filter results based on query and type
+    all_results = []
+    
+    if not type_filter or type_filter == "wrestler":
+        for wrestler in mock_wrestlers:
+            if q.lower() in wrestler["title"].lower():
+                all_results.append(SearchResult(**wrestler))
+                
+    if not type_filter or type_filter == "school":
+        for school in mock_schools:
+            if q.lower() in school["title"].lower():
+                all_results.append(SearchResult(**school))
+                
+    if not type_filter or type_filter == "tournament":
+        for tournament in mock_tournaments:
+            if q.lower() in tournament["title"].lower():
+                all_results.append(SearchResult(**tournament))
+    
+    # Sort by relevance score
+    all_results.sort(key=lambda x: x.relevance_score, reverse=True)
+    
+    # Apply pagination
+    total_count = len(all_results)
+    paginated_results = all_results[offset:offset + limit]
+    
+    return SearchResponse(
+        query=q,
+        total_count=total_count,
+        results=paginated_results,
+        offset=offset,
+        limit=limit
+    )
+
+
+@router.get("/search/suggestions/mock", response_model=SearchSuggestionsResponse)
+async def search_suggestions_mock(
+    q: str = Query(..., min_length=1, description="Partial search query"),
+    limit: int = Query(10, le=20, description="Maximum suggestions"),
+):
+    """Mock search suggestions endpoint for testing"""
+    
+    mock_suggestions = []
+    
+    # Mock wrestler suggestions
+    wrestler_names = ["Spencer Lee", "Spencer Rivera", "Roman Bravo-Young", "David Taylor", "Kyle Dake"]
+    for name in wrestler_names:
+        if q.lower() in name.lower():
+            mock_suggestions.append(SearchSuggestion(
+                text=name,
+                type="wrestler",
+                count=1
+            ))
+    
+    # Mock school suggestions  
+    school_names = ["Iowa", "Penn State", "Oklahoma State", "Ohio State", "Stanford"]
+    for name in school_names:
+        if q.lower() in name.lower():
+            mock_suggestions.append(SearchSuggestion(
+                text=name,
+                type="school", 
+                count=1
+            ))
+    
+    # Mock tournament suggestions
+    tournament_names = ["NCAA Championships", "Big Ten Championships", "Pac-12 Championships"]
+    for name in tournament_names:
+        if q.lower() in name.lower():
+            mock_suggestions.append(SearchSuggestion(
+                text=name,
+                type="tournament",
+                count=1
+            ))
+    
+    return SearchSuggestionsResponse(
+        query=q,
+        suggestions=mock_suggestions[:limit]
+    )
+
+
 @router.get("/search/people", response_model=List[dict])
 async def search_people_simple(
     q: str = Query(..., min_length=2, description="Search query"),
