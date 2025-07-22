@@ -85,7 +85,7 @@ jobs:
         id: deploy-frontend
 
       - name: Get deployment URL
-        run: echo "DEPLOYMENT_URL=$(vercel ls --token=${{ secrets.VERCEL_TOKEN }} | grep -E 'https://.*-.*vercel\.app' | head -1 | awk '{print $2}')" >> $GITHUB_ENV
+        run: echo "DEPLOYMENT_URL=$(vercel ls --yes --token=${{ secrets.VERCEL_TOKEN }} | grep -E 'https://.*-.*vercel\.app' | head -1 | awk '{print $2}')" >> $GITHUB_ENV
 
       # Deploy Backend to Railway
       - name: Install Railway CLI
@@ -96,7 +96,6 @@ jobs:
       - name: Deploy Backend to Railway
         run: |
           cd backend
-          railway login --token=${{ secrets.RAILWAY_TOKEN }}
           railway up --service=backend --detach
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
