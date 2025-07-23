@@ -10,6 +10,7 @@ from .config import settings
 from .database import db
 from .routers import schools, search, tournaments, wrestlers
 
+print("🔥 FastAPI app is starting!")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -43,8 +44,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "http://127.0.0.1:3000",
-        "http://localhost:3001",
-        "http://127.0.0.1:3001",
+        "https://louden-swain-grogs84-grogs84s-projects.vercel.app"
     ],
     allow_credentials=True,
     allow_methods=["*"],
