@@ -44,7 +44,8 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "http://127.0.0.1:3000",
-        "https://louden-swain-grogs84-grogs84s-projects.vercel.app"
+        "https://louden-swain-grogs84-grogs84s-projects.vercel.app",
+        "https://*.vercel.app",  # Allow all Vercel preview deployments
     ],
     allow_credentials=True,
     allow_methods=["*"],
