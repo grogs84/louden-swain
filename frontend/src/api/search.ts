@@ -28,6 +28,17 @@ export async function searchAPI(
     params.append('type_filter', filters.type);
   }
 
+  // Add wrestler-specific filters
+  if (filters.school) {
+    params.append('school', filters.school);
+  }
+  if (filters.weight_class) {
+    params.append('weight_class', filters.weight_class);
+  }
+  if (filters.division) {
+    params.append('division', filters.division);
+  }
+
   try {
     // Use real search endpoint
     const response = await fetch(`${API_BASE_URL}/api/search?${params}`, {
@@ -93,7 +104,9 @@ export async function getSearchSuggestions(
 export function getResultLink(result: { type: string; id: string }): string {
   switch (result.type) {
     case 'wrestler':
-      return `/profile/${result.id}`;
+      return `/person/${result.id}`;  // Updated to use person profile
+    case 'coach':
+      return `/person/${result.id}`;  // Updated to use person profile
     case 'school':
       return `/school/${result.id}`;
     case 'tournament':
@@ -110,6 +123,8 @@ export function formatResultType(type: string): string {
   switch (type) {
     case 'wrestler':
       return 'Wrestler';
+    case 'coach':
+      return 'Coach';
     case 'school':
       return 'School';
     case 'tournament':

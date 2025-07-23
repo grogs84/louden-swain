@@ -227,3 +227,38 @@ class WrestlerSearchResult(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class CoachSearchResult(BaseModel):
+    """Search result for coaches"""
+
+    person_id: str
+    first_name: str
+    last_name: str
+    full_name: str
+    last_school: Optional[str] = None
+    last_year: Optional[int] = None
+    type: str = "coach"
+
+    class Config:
+        from_attributes = True
+
+
+class PersonProfile(BaseModel):
+    """Complete person profile with all roles"""
+
+    person_id: str
+    first_name: str
+    last_name: str
+    full_name: str
+    search_name: Optional[str] = None
+    date_of_birth: Optional[date] = None
+    city_of_origin: Optional[str] = None
+    state_of_origin: Optional[str] = None
+    roles: List[dict] = []
+    primary_affiliation: Optional[dict] = None
+    wrestler_data: Optional[dict] = None
+    coach_data: Optional[dict] = None
+
+    class Config:
+        from_attributes = True

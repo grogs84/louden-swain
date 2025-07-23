@@ -17,14 +17,20 @@ function SearchPageContent() {
   const [error, setError] = useState<string | null>(null);
   
   const query = searchParams.get('q') || '';
-  const typeFilter = searchParams.get('type') as 'wrestler' | 'school' | 'tournament' | 'match' | undefined;
+  const typeFilter = searchParams.get('type') as 'wrestler' | 'school' | 'tournament' | 'match' | 'coach' | undefined;
   const offset = parseInt(searchParams.get('offset') || '0');
   const limit = parseInt(searchParams.get('limit') || '20');
+  const school = searchParams.get('school') || undefined;
+  const weight_class = searchParams.get('weight_class') || undefined;
+  const division = searchParams.get('division') || undefined;
   
   const filters: SearchFilters = {
     type: typeFilter,
     offset,
     limit,
+    school,
+    weight_class,
+    division,
   };
 
   const updateURL = (newFilters: SearchFilters, newQuery?: string) => {
@@ -35,6 +41,9 @@ function SearchPageContent() {
     if (newFilters.type) params.set('type', newFilters.type);
     if (newFilters.offset && newFilters.offset > 0) params.set('offset', newFilters.offset.toString());
     if (newFilters.limit && newFilters.limit !== 20) params.set('limit', newFilters.limit.toString());
+    if (newFilters.school) params.set('school', newFilters.school);
+    if (newFilters.weight_class) params.set('weight_class', newFilters.weight_class);
+    if (newFilters.division) params.set('division', newFilters.division);
     
     router.push(`/search?${params.toString()}`);
   };
@@ -70,7 +79,7 @@ function SearchPageContent() {
       performSearch(query, filters);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, typeFilter, offset, limit]);
+  }, [query, typeFilter, offset, limit, school, weight_class, division]);
 
   const handleFiltersChange = (newFilters: SearchFilters) => {
     updateURL(newFilters);

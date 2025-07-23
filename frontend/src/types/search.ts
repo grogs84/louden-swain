@@ -2,7 +2,7 @@
 
 export interface SearchResult {
   id: string;
-  type: 'wrestler' | 'school' | 'tournament' | 'match';
+  type: 'wrestler' | 'school' | 'tournament' | 'match' | 'coach';
   title: string;
   subtitle?: string;
   relevance_score: number;
@@ -21,7 +21,7 @@ export interface SearchResponse {
 
 export interface SearchSuggestion {
   text: string;
-  type: 'wrestler' | 'school' | 'tournament';
+  type: 'wrestler' | 'school' | 'tournament' | 'coach';
   count?: number;
 }
 
@@ -31,9 +31,13 @@ export interface SearchSuggestionsResponse {
 }
 
 export interface SearchFilters {
-  type?: 'wrestler' | 'school' | 'tournament' | 'match';
+  type?: 'wrestler' | 'school' | 'tournament' | 'match' | 'coach';
   offset?: number;
   limit?: number;
+  // Wrestler-specific filters
+  school?: string;
+  weight_class?: string;
+  division?: string;
 }
 
 // Legacy types for backward compatibility
