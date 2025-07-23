@@ -46,6 +46,7 @@ app.add_middleware(
         "http://127.0.0.1:3000",
         "https://louden-swain-grogs84-grogs84s-projects.vercel.app",
         "https://*.vercel.app",  # Allow all Vercel preview deployments
+        "https://louden-swain.vercel.app"
     ],
     allow_origin_regex=r"https://.*\.vercel\.app",  # Better wildcard support
     allow_credentials=True,
