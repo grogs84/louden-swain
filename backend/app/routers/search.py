@@ -407,9 +407,12 @@ async def search_legacy(
 async def search_wrestlers(
     q: str = Query(..., min_length=2, description="Search query"),
     limit: int = Query(25, le=50, description="Maximum results"),
+    school: Optional[str] = Query(None, description="Filter by school"),
+    weight_class: Optional[str] = Query(None, description="Filter by weight class"),
+    division: Optional[str] = Query(None, description="Filter by division (D1, D2, D3)"),
     db: Database = Depends(get_db),
 ):
-    """Search wrestlers with disambiguation hints (last school, year, weight class)"""
+    """Search wrestlers with disambiguation hints and advanced filtering"""
     query = """
     WITH wrestler_latest AS (
       SELECT DISTINCT ON (p.person_id)
@@ -417,6 +420,7 @@ async def search_wrestlers(
         p.first_name,
         p.last_name,
         s.name as last_school,
+        s.school_type as division,
         part.year as last_year,
         part.weight_class as last_weight_class
       FROM person p
@@ -431,17 +435,33 @@ async def search_wrestlers(
       first_name,
       last_name,
       last_school,
+      division,
       last_year,
       last_weight_class
     FROM wrestler_latest
     WHERE (first_name || ' ' || last_name) ILIKE $1
        OR COALESCE(first_name, '') ILIKE $1
        OR COALESCE(last_name, '') ILIKE $1
-    ORDER BY last_name, first_name
-    LIMIT $2
     """
+    
+    params = [f"%{q}%"]
+    
+    if school:
+        query += " AND COALESCE(last_school, '') ILIKE $" + str(len(params) + 1)
+        params.append(f"%{school}%")
+        
+    if weight_class:
+        query += " AND last_weight_class = $" + str(len(params) + 1)
+        params.append(weight_class)
+        
+    if division:
+        query += " AND COALESCE(division, '') ILIKE $" + str(len(params) + 1)
+        params.append(f"%{division}%")
+    
+    query += " ORDER BY last_name, first_name LIMIT $" + str(len(params) + 1)
+    params.append(limit)
 
-    wrestlers = await db.fetch_all(query, f"%{q}%", limit)
+    wrestlers = await db.fetch_all(query, *params)
     return [
         WrestlerSearchResult(
             person_id=w["person_id"],
@@ -730,6 +750,67 @@ async def search_suggestions_mock(
             )
 
     return SearchSuggestionsResponse(query=q, suggestions=mock_suggestions[:limit])
+
+
+@router.get("/search/coaches", response_model=List[dict])
+async def search_coaches(
+    q: str = Query(..., min_length=2, description="Search query"),
+    limit: int = Query(25, le=50, description="Maximum results"),
+    school: Optional[str] = Query(None, description="Filter by school"),
+    db: Database = Depends(get_db),
+):
+    """Search coaches with optional school filtering"""
+    query = """
+    WITH coach_latest AS (
+      SELECT DISTINCT ON (p.person_id)
+        p.person_id,
+        p.first_name,
+        p.last_name,
+        s.name as last_school,
+        part.year as last_year
+      FROM person p
+      JOIN role r ON p.person_id = r.person_id
+      LEFT JOIN participant part ON r.role_id = part.role_id
+      LEFT JOIN school s ON part.school_id = s.school_id
+      WHERE r.role_type = 'coach'
+      ORDER BY p.person_id, part.year DESC NULLS LAST
+    )
+    SELECT
+      person_id,
+      first_name,
+      last_name,
+      last_school,
+      last_year
+    FROM coach_latest
+    WHERE (first_name || ' ' || last_name) ILIKE $1
+       OR COALESCE(first_name, '') ILIKE $1
+       OR COALESCE(last_name, '') ILIKE $1
+    """
+    
+    params = [f"%{q}%"]
+    
+    if school:
+        query += " AND COALESCE(last_school, '') ILIKE $2"
+        params.append(f"%{school}%")
+        
+    query += """
+    ORDER BY last_name, first_name
+    LIMIT $""" + str(len(params) + 1)
+    params.append(limit)
+
+    coaches = await db.fetch_all(query, *params)
+    return [
+        {
+            "person_id": c["person_id"],
+            "first_name": c["first_name"],
+            "last_name": c["last_name"],
+            "full_name": f"{c['first_name']} {c['last_name']}",
+            "last_school": c["last_school"],
+            "last_year": c["last_year"],
+            "type": "coach"
+        }
+        for c in coaches
+    ]
 
 
 @router.get("/search/people", response_model=List[dict])

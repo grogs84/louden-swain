@@ -31,6 +31,8 @@ export default function SearchResultCard({ result, onSelect }: SearchResultCardP
     switch (type) {
       case 'wrestler':
         return '🤼';
+      case 'coach':
+        return '👨‍🏫';
       case 'school':
         return '🏫';
       case 'tournament':

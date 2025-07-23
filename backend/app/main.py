@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
 from .database import db
-from .routers import schools, search, tournaments, wrestlers
+from .routers import persons, schools, search, tournaments, wrestlers
 
 print("🔥 FastAPI app is starting!")
 
@@ -54,6 +54,7 @@ app.add_middleware(
 )
 
 # Include routers
+app.include_router(persons.router, prefix="/api/persons", tags=["persons"])
 app.include_router(wrestlers.router, prefix="/api/wrestlers", tags=["wrestlers"])
 app.include_router(schools.router, prefix="/api/schools", tags=["schools"])
 app.include_router(tournaments.router, prefix="/api/tournaments", tags=["tournaments"])
