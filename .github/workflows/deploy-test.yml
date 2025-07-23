@@ -79,11 +79,15 @@ jobs:
 
       - name: Set Vercel Environment Variable for API URL
         run: |
-          # Set your manually deployed Railway backend URL
-          echo "NEXT_PUBLIC_API_URL=https://your-backend-service.up.railway.app" >> frontend/.env.production
+          # Set environment variable for the build process
+          echo "NEXT_PUBLIC_API_URL=https://louden-swain-production.up.railway.app" >> $GITHUB_ENV
+          # Also create the .env.production file as backup
+          echo "NEXT_PUBLIC_API_URL=https://louden-swain-production.up.railway.app" >> frontend/.env.production
 
       - name: Build Project Artifacts
         run: vercel build --token=${{ secrets.VERCEL_TOKEN }} --cwd frontend
+        env:
+          NEXT_PUBLIC_API_URL: https://louden-swain-production.up.railway.app
 
       - name: Deploy Project Artifacts to Vercel
         run: vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }} --cwd frontend

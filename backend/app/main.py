@@ -47,6 +47,7 @@ app.add_middleware(
         "https://louden-swain-grogs84-grogs84s-projects.vercel.app",
         "https://*.vercel.app",  # Allow all Vercel preview deployments
     ],
+    allow_origin_regex=r"https://.*\.vercel\.app",  # Better wildcard support
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
